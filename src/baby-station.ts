@@ -161,6 +161,7 @@ export async function initBabyStation(
 
         peer.on('call', (call) => {
             console.log('Incoming call from parent...');
+            console.log('Stream tracks:', stream?.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
             statusEl.textContent = 'Parent connected! Streaming...';
             activeCall = call;
             call.answer(stream!);

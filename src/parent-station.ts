@@ -15,6 +15,7 @@ export async function initParentStation(
     let peer: Peer | null = null;
     let activeCall: MediaConnection | null = null;
     let dummyStream: MediaStream | null = null;
+    let dummyAudioCtx: AudioContext | null = null;
     let remoteStream: MediaStream | null = null;
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
 
@@ -33,6 +34,10 @@ export async function initParentStation(
         }
         stopMediaStream(dummyStream);
         dummyStream = null;
+        if (dummyAudioCtx) {
+            dummyAudioCtx.close();
+            dummyAudioCtx = null;
+        }
         stopMediaStream(remoteStream);
         remoteStream = null;
         wakeLockHandle?.release();
@@ -66,26 +71,46 @@ export async function initParentStation(
     peer.on('open', () => {
         statusEl.textContent = `Connected to server. Calling Baby Station (${remoteId})...`;
 
-        // Create a dummy stream to initiate the call
+        // Create a dummy stream with both video and audio tracks
+        // This ensures PeerJS negotiates both media types
         const canvas = document.createElement('canvas');
         canvas.width = 1;
         canvas.height = 1;
-        dummyStream = canvas.captureStream();
+
+        // Create silent audio track using AudioContext
+        const audioCtx = new AudioContext();
+        dummyAudioCtx = audioCtx;
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.value = 0; // Silent
+        oscillator.connect(gainNode);
+        const dest = audioCtx.createMediaStreamDestination();
+        gainNode.connect(dest);
+        oscillator.start();
+
+        // Combine video and audio into one stream
+        dummyStream = new MediaStream([
+            ...canvas.captureStream().getVideoTracks(),
+            ...dest.stream.getAudioTracks()
+        ]);
 
         activeCall = peer!.call(remoteId, dummyStream);
 
         activeCall.on('stream', (stream) => {
             remoteStream = stream;
+            console.log('Received stream tracks:', stream.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
             statusEl.textContent = 'Connected! Monitoring...';
             videoEl.srcObject = stream;
             videoEl.play().catch((e) => console.error('Auto-play failed', e));
 
-            // Set up audio level meter
+            // Set up audio level meter if stream has audio tracks
             const meterEl = container.querySelector<HTMLElement>('#audio-level-meter');
-            if (meterEl) {
+            if (meterEl && stream.getAudioTracks().length > 0) {
                 audioMeterHandle = createAudioLevelMeter(stream, (level) => {
                     meterEl.style.width = `${level * 100}%`;
                 });
+            } else if (meterEl) {
+                console.warn('No audio tracks in received stream');
             }
         });
 
