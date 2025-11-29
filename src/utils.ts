@@ -129,3 +129,19 @@ export function createAudioLevelMeter(
         }
     };
 }
+
+// Get current device orientation angle in degrees
+export function getOrientationAngle(): number {
+    // Use Screen Orientation API if available
+    if (screen.orientation) {
+        return screen.orientation.angle;
+    }
+    
+    // Fallback to deprecated window.orientation (for older iOS Safari)
+    if (typeof window.orientation === 'number') {
+        return window.orientation;
+    }
+    
+    // Default to 0 (portrait) if no API available
+    return 0;
+}

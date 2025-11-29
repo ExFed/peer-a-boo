@@ -1,7 +1,8 @@
 import { Peer } from 'peerjs';
-import type { MediaConnection } from 'peerjs';
+import type { MediaConnection, DataConnection } from 'peerjs';
 import { requestWakeLock, stopMediaStream, createAudioLevelMeter } from './utils';
 import type { AudioLevelMeterHandle } from './utils';
+import type { OrientationMessage } from './baby-station';
 
 export interface CleanupHandle {
     cleanup: () => void;
@@ -14,12 +15,16 @@ export async function initParentStation(
     const wakeLockHandle = await requestWakeLock();
     let peer: Peer | null = null;
     let activeCall: MediaConnection | null = null;
+    let dataConnection: DataConnection | null = null;
     let dummyStream: MediaStream | null = null;
     let dummyAudioCtx: AudioContext | null = null;
     let remoteStream: MediaStream | null = null;
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     let isConnected = false;
+    let babyOrientationAngle = 0;
+    let videoEl: HTMLVideoElement | null = null;
+    let statusEl: HTMLElement | null = null;
 
     const cleanup = () => {
         if (retryTimeout) {
@@ -29,6 +34,10 @@ export async function initParentStation(
         if (audioMeterHandle) {
             audioMeterHandle.stop();
             audioMeterHandle = null;
+        }
+        if (dataConnection) {
+            dataConnection.close();
+            dataConnection = null;
         }
         if (activeCall) {
             activeCall.close();
@@ -57,6 +66,52 @@ export async function initParentStation(
 
     function getNextDelay(): number {
         return minDelay + Math.random() * randomFactor * minDelay;
+    }
+
+    // Apply rotation transform to video based on baby station orientation
+    function applyOrientationTransform(videoEl: HTMLVideoElement, angle: number) {
+        // The baby station sends its current orientation angle
+        // We need to apply a counter-rotation to display the video correctly
+        const rotation = -angle;
+        videoEl.style.transform = rotation !== 0 ? `rotate(${rotation}deg)` : '';
+        console.log('Applied orientation transform:', rotation);
+    }
+
+    // Connect to baby station's data channel for orientation updates
+    function connectDataChannel() {
+        if (!peer || !peer.open) {
+            return;
+        }
+
+        // Close existing connection if any
+        if (dataConnection) {
+            dataConnection.close();
+        }
+
+        dataConnection = peer.connect(remoteId);
+
+        dataConnection.on('open', () => {
+            console.log('Data connection opened to baby station');
+        });
+
+        dataConnection.on('data', (data) => {
+            const message = data as OrientationMessage;
+            if (message.type === 'orientation') {
+                babyOrientationAngle = message.angle;
+                if (videoEl) {
+                    applyOrientationTransform(videoEl, babyOrientationAngle);
+                }
+            }
+        });
+
+        dataConnection.on('close', () => {
+            console.log('Data connection closed');
+            dataConnection = null;
+        });
+
+        dataConnection.on('error', (err) => {
+            console.error('Data connection error:', err);
+        });
     }
 
     function createDummyStream() {
@@ -166,6 +221,7 @@ export async function initParentStation(
 
         peer.on('open', () => {
             console.log('Connected to signaling server');
+            connectDataChannel();
             attemptCall();
         });
 
@@ -198,8 +254,8 @@ export async function initParentStation(
     </div>
   `;
 
-    const statusEl = container.querySelector<HTMLElement>('#status');
-    const videoEl = container.querySelector<HTMLVideoElement>('#remote-video');
+    statusEl = container.querySelector<HTMLElement>('#status');
+    videoEl = container.querySelector<HTMLVideoElement>('#remote-video');
 
     if (!statusEl || !videoEl) {
         console.error('Required elements not found');
