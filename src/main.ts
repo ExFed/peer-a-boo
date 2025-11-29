@@ -14,8 +14,8 @@ appEl.innerHTML = `
       <div style="margin-bottom: 1rem;">
         <input type="text" id="peer-id-input" style="padding: 0.6em; font-size: 1em; width: 250px; text-align: center;" />
       </div>
-      <button id="btn-baby" type="button">I am the Baby Station (Camera)</button>
-      <button id="btn-parent" type="button">I am the Parent Station (Monitor)</button>
+      <button id="btn-baby" type="button">📹 Baby Station</button>
+      <button id="btn-parent" type="button">👀 Parent Station</button>
     </div>
     <div id="station-container"></div>
   </div>
