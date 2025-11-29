@@ -18,8 +18,14 @@ export async function initParentStation(
     let dummyAudioCtx: AudioContext | null = null;
     let remoteStream: MediaStream | null = null;
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isConnected = false;
 
     const cleanup = () => {
+        if (retryTimeout) {
+            clearTimeout(retryTimeout);
+            retryTimeout = null;
+        }
         if (audioMeterHandle) {
             audioMeterHandle.stop();
             audioMeterHandle = null;
@@ -44,35 +50,31 @@ export async function initParentStation(
         console.log('Parent Station cleaned up');
     };
 
-    container.innerHTML = `
-    <h2>Parent Station</h2>
-    <div id="status">Connecting to ${remoteId}...</div>
-    <div style="margin-top: 20px;">
-      <video id="remote-video" autoplay playsinline controls style="max-width: 100%; border: 2px solid #646cff;"></video>
-    </div>
-    <div class="audio-level-container">
-      <label>Audio Level:</label>
-      <div class="audio-level-track">
-        <div id="audio-level-meter" class="audio-level-meter"></div>
-      </div>
-    </div>
-  `;
+    // Exponential backoff; note that PeerJS keeps call connections open for 5s
+    // until giving up; setting minDelay to 5s or less causes retry logic to
+    // fail
+    const minDelay = 6000; // ms
+    const maxDelay = 10000; // ms
+    let currentDelay = minDelay;
 
-    const statusEl = container.querySelector<HTMLElement>('#status');
-    const videoEl = container.querySelector<HTMLVideoElement>('#remote-video');
-
-    if (!statusEl || !videoEl) {
-        console.error('Required elements not found');
-        return { cleanup };
+    function resetBackoff() {
+        currentDelay = minDelay;
     }
 
-    peer = new Peer();
+    function getNextDelay(): number {
+        const delay = currentDelay;
+        currentDelay = Math.min(currentDelay * 2, maxDelay);
+        return delay;
+    }
 
-    peer.on('open', () => {
-        statusEl.textContent = `Connected to server. Calling Baby Station (${remoteId})...`;
+    function createDummyStream() {
+        // Clean up existing dummy stream resources
+        if (dummyAudioCtx) {
+            dummyAudioCtx.close();
+        }
+        stopMediaStream(dummyStream);
 
         // Create a dummy stream with both video and audio tracks
-        // This ensures PeerJS negotiates both media types
         const canvas = document.createElement('canvas');
         canvas.width = 1;
         canvas.height = 1;
@@ -94,19 +96,56 @@ export async function initParentStation(
             ...dest.stream.getAudioTracks()
         ]);
 
-        activeCall = peer!.call(remoteId, dummyStream);
+        return dummyStream;
+    }
 
-        activeCall.on('stream', (stream) => {
-            remoteStream = stream;
-            console.log('Received stream tracks:', stream.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
-            statusEl.textContent = 'Connected! Monitoring...';
-            videoEl.srcObject = stream;
-            videoEl.play().catch((e) => console.error('Auto-play failed', e));
+    function scheduleRetry() {
+        if (retryTimeout) {
+            clearTimeout(retryTimeout);
+        }
+        const delay = getNextDelay();
+        statusEl!.textContent = `Connection lost. Retrying in ${Math.round(delay / 1000)}s...`;
+        retryTimeout = setTimeout(attemptCall, delay);
+    }
+
+    function attemptCall() {
+        if (!peer || peer.destroyed) {
+            // Peer was destroyed, recreate it
+            initPeer();
+            return;
+        }
+
+        if (!peer.open) {
+            // Peer not connected to server yet, wait and retry
+            const delay = getNextDelay();
+            statusEl!.textContent = `Connecting to server... Retry in ${Math.round(delay / 1000)}s`;
+            retryTimeout = setTimeout(attemptCall, delay);
+            return;
+        }
+
+        console.log(`Connection open: ${peer}`);
+
+        statusEl!.textContent = `Calling Baby Station...`;
+
+        const stream = createDummyStream();
+        activeCall = peer.call(remoteId, stream);
+
+        activeCall.on('stream', (incomingStream) => {
+            isConnected = true;
+            resetBackoff();
+            remoteStream = incomingStream;
+            console.log('Received stream tracks:', incomingStream.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
+            statusEl!.textContent = 'Connected! Monitoring...';
+            videoEl!.srcObject = incomingStream;
+            videoEl!.play().catch((e) => console.error('Auto-play failed', e));
 
             // Set up audio level meter if stream has audio tracks
             const meterEl = container.querySelector<HTMLElement>('#audio-level-meter');
-            if (meterEl && stream.getAudioTracks().length > 0) {
-                audioMeterHandle = createAudioLevelMeter(stream, (level) => {
+            if (meterEl && incomingStream.getAudioTracks().length > 0) {
+                if (audioMeterHandle) {
+                    audioMeterHandle.stop();
+                }
+                audioMeterHandle = createAudioLevelMeter(incomingStream, (level) => {
                     meterEl.style.width = `${level * 100}%`;
                 });
             } else if (meterEl) {
@@ -115,19 +154,69 @@ export async function initParentStation(
         });
 
         activeCall.on('close', () => {
-            statusEl.textContent = 'Call closed.';
+            isConnected = false;
+            statusEl!.textContent = 'Call closed. Reconnecting...';
+            scheduleRetry();
         });
 
         activeCall.on('error', (err) => {
-            console.error(err);
-            statusEl.textContent = 'Call error: ' + err;
+            console.error('Call error:', err);
+            isConnected = false;
+            scheduleRetry();
         });
-    });
+    }
 
-    peer.on('error', (err) => {
-        console.error(err);
-        statusEl.textContent = 'Peer error: ' + err.type;
-    });
+    function initPeer() {
+        if (peer) {
+            peer.destroy();
+        }
+
+        peer = new Peer();
+
+        peer.on('open', () => {
+            console.log('Connected to signaling server');
+            attemptCall();
+        });
+
+        peer.on('disconnected', () => {
+            console.log('Disconnected from signaling server');
+            if (!isConnected) {
+                scheduleRetry();
+            }
+        });
+
+        peer.on('error', (err) => {
+            console.error('Peer error:', err);
+            statusEl!.textContent = `Peer error: ${err.type}. Retrying...`;
+            scheduleRetry();
+        });
+    }
+
+    container.innerHTML = `
+    <h2>Parent Station</h2>
+    <h3>${remoteId}</h3>
+    <div id="status">Connecting...</div>
+    <div style="margin-top: 20px;">
+      <video id="remote-video" autoplay playsinline controls style="max-width: 100%; border: 2px solid #646cff;"></video>
+    </div>
+    <div class="audio-level-container">
+      <label>Audio Level:</label>
+      <div class="audio-level-track">
+        <div id="audio-level-meter" class="audio-level-meter"></div>
+      </div>
+    </div>
+  `;
+
+    const statusEl = container.querySelector<HTMLElement>('#status');
+    const videoEl = container.querySelector<HTMLVideoElement>('#remote-video');
+
+    if (!statusEl || !videoEl) {
+        console.error('Required elements not found');
+        return { cleanup };
+    }
+
+    // Start the connection process
+    initPeer();
 
     return { cleanup };
 }
