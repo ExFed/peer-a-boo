@@ -73,9 +73,14 @@ export async function initBabyStation(
         return { cleanup };
     }
 
-    // Populate device dropdowns
+    // Populate device dropdowns, preserving current selection if possible
     async function populateDevices() {
+        const currentCamera = cameraSelect!.value;
+        const currentMic = micSelect!.value;
+
         const devices = await enumerateMediaDevices();
+
+        console.log('Enumerated devices:', devices);
 
         cameraSelect!.innerHTML = devices.cameras
             .map(d => `<option value="${d.deviceId}">${d.label}</option>`)
@@ -84,16 +89,31 @@ export async function initBabyStation(
         micSelect!.innerHTML = devices.microphones
             .map(d => `<option value="${d.deviceId}">${d.label}</option>`)
             .join('');
+
+        // Restore previous selection if still available
+        if (currentCamera && devices.cameras.some(d => d.deviceId === currentCamera)) {
+            cameraSelect!.value = currentCamera;
+        }
+        if (currentMic && devices.microphones.some(d => d.deviceId === currentMic)) {
+            micSelect!.value = currentMic;
+        }
     }
 
     // Start or restart media stream with selected devices
-    async function startStream() {
+    async function startStream(preferBackCamera = false): Promise<MediaStream> {
         stopMediaStream(stream);
 
+        // Build video constraints
+        let videoConstraints: MediaTrackConstraints | boolean = true;
+        if (cameraSelect!.value) {
+            videoConstraints = { deviceId: { exact: cameraSelect!.value } };
+        } else if (preferBackCamera) {
+            // On mobile, prefer back-facing camera for baby monitoring
+            videoConstraints = { facingMode: { ideal: 'environment' } };
+        }
+
         const constraints: MediaStreamConstraints = {
-            video: cameraSelect!.value
-                ? { deviceId: { exact: cameraSelect!.value } }
-                : true,
+            video: videoConstraints,
             audio: micSelect!.value
                 ? { deviceId: { exact: micSelect!.value } }
                 : true
@@ -115,6 +135,8 @@ export async function initBabyStation(
                 }
             });
         }
+
+        return stream;
     }
 
     // Handle device changes
@@ -139,9 +161,31 @@ export async function initBabyStation(
     navigator.mediaDevices.addEventListener('devicechange', deviceChangeHandler);
 
     try {
-        // Initial device enumeration and stream start
+        // Initial enumeration may be limited before permission grant
         await populateDevices();
-        await startStream();
+
+        // Start stream preferring back camera (for baby monitoring)
+        const currentStream = await startStream(true);
+
+        // Re-enumerate devices after permission is granted to get full list
+        await populateDevices();
+
+        // Update dropdown to reflect actual selected device
+        const videoTrack = currentStream.getVideoTracks()[0];
+        const audioTrack = currentStream.getAudioTracks()[0];
+        if (videoTrack) {
+            const settings = videoTrack.getSettings();
+            if (settings.deviceId) {
+                cameraSelect.value = settings.deviceId;
+            }
+        }
+        if (audioTrack) {
+            const settings = audioTrack.getSettings();
+            if (settings.deviceId) {
+                micSelect.value = settings.deviceId;
+            }
+        }
+
         statusEl.textContent = 'Camera started. Connecting to signaling server...';
 
         peer = new Peer(peerId);
