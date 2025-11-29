@@ -1,96 +1,59 @@
-# Peer-a-Boo MVP (LAN-only, No Backend)
+# Peer-a-Boo: Web-Based P2P Baby Monitor
 
-Date: 2025-11-29T03:12:17.260Z
+## 1. Technology Stack
 
-Goal
-- Web-based baby monitor over same subnet (LAN) using purely P2P WebRTC.
-- Static-hosted client. No signaling backend; manual out-of-band pairing via QR codes/text.
+### Protocols
+*   **WebRTC (Web Real-Time Communication)**: The core protocol for peer-to-peer audio and video streaming. It allows the browser to send media directly to another browser without a media server.
+*   **HTTPS**: Required for WebRTC (browsers block camera/mic access on insecure origins, except localhost).
 
-Scope
-- Roles: Station (laptop in baby room) and Viewer (phone on same Wi‑Fi).
-- 1:1 connection. No recording or cloud storage. Local-only alerts optional.
+### Languages
+*   **HTML5**: Structure.
+*   **CSS3**: Styling (responsive for phone/laptop).
+*   **TypeScript**: Application logic.
 
-Protocols
-- WebRTC (RTCPeerConnection) for audio/video/data.
-- SRTP/DTLS via WebRTC for encrypted media.
-- Host/mDNS ICE candidates only (LAN). No STUN/TURN.
-- HTTPS for static hosting.
+### Libraries & Tools
+*   **PeerJS**: A wrapper around WebRTC that simplifies the signaling process (finding peers). It provides a free cloud-hosted signaling server for the handshake.
+*   **Vite**: Build tool for fast development and static site generation.
+*   **QRCode** (e.g., `qrcode` package): To easily share the connection ID from the laptop (Baby) to the phone (Parent) by scanning the screen.
+*   **NoSleep.js** (or native Wake Lock API): To prevent the phone/laptop from going to sleep while monitoring.
 
-Languages
-- TypeScript/JavaScript, HTML, CSS.
+### Hosting (Static)
+*   **GitHub Pages / Netlify / Vercel**: Since the app is purely client-side, it can be hosted on any static hosting provider.
 
-Libraries
-- Native Web APIs: getUserMedia, RTCPeerConnection, MediaStream, MediaDevices.
-- Optional helpers: simple-peer or PeerJS (can start raw for control).
-- Build: Vite or esbuild.
-- UI: Svelte/Preact or Vanilla + Tailwind (small bundle).
-- QR: qrcode or qr-code-styling.
-- Optional detection: WebAudio API for sound level; MediaPipe/TensorFlow.js for motion (later).
+## 2. Architecture
 
-Manual Signaling Plan (LAN)
-- Disable trickle ICE; wait for icegatheringstate === "complete" to shrink payload.
-- Compress SDP (optional): deflate -> base64 to keep QR size manageable.
-- Exchange via QR or copy/paste:
-  1) Station generates Offer SDP, shows QR.
-  2) Viewer scans QR, sets RemoteDescription, creates Answer, shows QR back.
-  3) Station scans Answer QR, sets RemoteDescription. Connection establishes over LAN.
+*   **Signaling**: We will use PeerJS's public cloud signaling server to establish the initial connection. No custom backend code is required.
+*   **Data Flow**:
+    1.  **Baby Station (Laptop)**: Initiates a Peer connection. Generates a unique ID.
+    2.  **Signaling**: The ID is shared (via link or QR code) to the Parent Station.
+    3.  **Parent Station (Phone)**: Uses the ID to connect to the Baby Station via PeerJS.
+    4.  **Media Stream**: Once connected, the Baby Station streams Audio/Video directly to the Parent Station via WebRTC.
 
-Connection Config
-- RTCPeerConnection({
-  iceServers: [],             // no STUN/TURN
-  // Keep defaults so host/mDNS candidates are allowed
-})
-- Constraints:
-  - Audio: echoCancellation:true, noiseSuppression:true, autoGainControl:true.
-  - Video: prefer low resolution (e.g., 640x360 @ 15–24fps) for battery/bandwidth.
-- Codec hints:
-  - Audio: Opus.
-  - Video: VP8/H.264; allow browser defaults. Consider limiting to one video codec to reduce SDP size.
+## 3. Basic Plan
 
-UX Requirements
-- Station: start/stop camera/mic, preview, audio level meter, room code/QR display, scan Answer.
-- Viewer: connect via QR, low-latency playback, mute/unmute, reconnect button.
-- Responsive layout; dark mode; clear pairing instructions.
+### Phase 1: Project Initialization
+1.  Set up a new project using **Vite** (Vanilla TypeScript).
+2.  Install dependencies: `peerjs`, `qrcode`.
+3.  Configure for static deployment.
 
-Features Missing Without Backend (accepted tradeoffs)
-- No auto-discovery/pairing; manual QR exchange.
-- No remote push alerts when Viewer disconnected.
-- Limited reconnect; may need re-pair on IP change/sleep.
-- Single viewer; no multi-session coordination.
-- No telemetry/diagnostics server.
+### Phase 2: Core Logic (The "Baby" Station)
+1.  Request access to `navigator.mediaDevices.getUserMedia` (Video + Audio).
+2.  Initialize `Peer` instance.
+3.  Display the local video stream on the screen (muted locally).
+4.  Generate a "Room ID" (Peer ID) and display it as a QR Code or shareable link.
 
-Security & Privacy
-- HTTPS-only hosting; CSP and secure headers.
-- Ephemeral pairing: sessions reset on refresh; no persistence.
-- No recordings by default. All processing on-device.
+### Phase 3: Core Logic (The "Parent" Station)
+1.  Create an input field to enter the "Room ID" (or read from URL query param).
+2.  Initialize `Peer` instance.
+3.  Connect to the Baby Station's Peer ID.
+4.  Receive the remote stream and play it in a `<video>` element.
+5.  Ensure audio is enabled (browsers often block autoplaying audio; may need a "Start Monitoring" button).
 
-MVP Milestones
-- M1: Static app skeleton
-  - Build setup (Vite), minimal UI for Station/Viewer roles.
-  - getUserMedia on Station, display preview.
-- M2: Manual signaling via QR (non-trickle ICE)
-  - Generate Offer (Station), QR render; scan on Viewer; generate Answer; QR back.
-  - Establish WebRTC media stream over LAN.
-- M3: UX polish
-  - Audio meter, mute/unmute, connection status, error messages.
-  - Save last role selection in localStorage.
-- M4: Reliability
-  - Reconnect flow button, ICE failure messaging, guidance to re-scan.
-  - Connectivity checks: show candidate types used (host/mDNS).
-- M5: Optional local alerts
-  - On-Station sound level threshold (cry-like volume spike) with on-screen alert.
-  - Motion sensitivity slider (basic frame differencing, on-device).
+### Phase 4: Polish & Reliability
+1.  **Reconnection logic**: Handle network drops.
+2.  **Wake Lock**: Implement `navigator.wakeLock` to keep screens on.
+3.  **UI/UX**: Clear distinction between "Sender" and "Receiver" modes.
 
-Testing Plan
-- Devices: laptop (Station) + Android/iOS (Viewer) on same Wi‑Fi.
-- Scenarios: IP change, sleep/wake, Wi‑Fi roam; verify re-pairing steps.
-- Performance: CPU/battery while streaming; audio intelligibility; latency.
-
-Deployment
-- Host static site on GitHub Pages/Netlify/Vercel.
-- Ensure HTTPS and service worker for offline assets (optional; no background network).
-
-Implementation Notes
-- Keep SDPs small: no trickle ICE, limit codecs/resolutions, avoid datachannel unless needed.
-- QR size target: <= 2–3 KB payload; compress if needed.
-- Provide copy/paste fallback if camera access to scan isn’t granted on Station.
+### Phase 5: Deployment
+1.  Build the static assets.
+2.  Deploy to a static host.
