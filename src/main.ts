@@ -1,7 +1,13 @@
 import './style.css'
 import { generateRandomId } from './dictionary';
+import type { CleanupHandle } from './baby-station';
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+const appEl = document.querySelector<HTMLDivElement>('#app');
+if (!appEl) {
+    throw new Error('App container not found');
+}
+
+appEl.innerHTML = `
   <div>
     <h1>Peer-a-Boo 👻</h1>
     <div class="card">
@@ -15,10 +21,23 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </div>
 `
 
-const btnBaby = document.querySelector<HTMLButtonElement>('#btn-baby')!;
-const btnParent = document.querySelector<HTMLButtonElement>('#btn-parent')!;
-const stationContainer = document.querySelector<HTMLDivElement>('#station-container')!;
-const peerIdInput = document.querySelector<HTMLInputElement>('#peer-id-input')!;
+const btnBaby = document.querySelector<HTMLButtonElement>('#btn-baby');
+const btnParent = document.querySelector<HTMLButtonElement>('#btn-parent');
+const stationContainer = document.querySelector<HTMLDivElement>('#station-container');
+const peerIdInput = document.querySelector<HTMLInputElement>('#peer-id-input');
+
+if (!btnBaby || !btnParent || !stationContainer || !peerIdInput) {
+    throw new Error('Required elements not found');
+}
+
+let currentCleanup: CleanupHandle | null = null;
+
+function cleanupCurrentStation() {
+    if (currentCleanup) {
+        currentCleanup.cleanup();
+        currentCleanup = null;
+    }
+}
 
 // Generate random ID
 peerIdInput.value = generateRandomId();
@@ -31,34 +50,47 @@ if (urlParams.has('babyId')) {
 
     // Auto-load Parent Station
     stationContainer.innerHTML = '<p>Initializing Parent Station...</p>';
-    import('./parent-station').then(module => module.initParentStation(stationContainer, babyId));
+    import('./parent-station').then(async (module) => {
+        cleanupCurrentStation();
+        currentCleanup = await module.initParentStation(stationContainer!, babyId);
+    });
     hideSelection();
 }
 
-btnBaby.addEventListener('click', () => {
-    const peerId = peerIdInput.value.trim();
+btnBaby.addEventListener('click', async () => {
+    const peerId = peerIdInput!.value.trim();
     if (!peerId) {
         alert('Please enter a Room identifier');
         return;
     }
-    // TODO: Load Baby Station Logic
-    stationContainer.innerHTML = '<p>Initializing Baby Station...</p>';
-    import('./baby-station').then(module => module.initBabyStation(stationContainer, peerId));
+    stationContainer!.innerHTML = '<p>Initializing Baby Station...</p>';
+    const module = await import('./baby-station');
+    cleanupCurrentStation();
+    currentCleanup = await module.initBabyStation(stationContainer!, peerId);
     hideSelection();
 });
 
-btnParent.addEventListener('click', () => {
-    const peerId = peerIdInput.value.trim();
+btnParent.addEventListener('click', async () => {
+    const peerId = peerIdInput!.value.trim();
     if (!peerId) {
         alert('Please enter a Room identifier');
         return;
     }
-    // TODO: Load Parent Station Logic
-    stationContainer.innerHTML = '<p>Initializing Parent Station...</p>';
-    import('./parent-station').then(module => module.initParentStation(stationContainer, peerId));
+    stationContainer!.innerHTML = '<p>Initializing Parent Station...</p>';
+    const module = await import('./parent-station');
+    cleanupCurrentStation();
+    currentCleanup = await module.initParentStation(stationContainer!, peerId);
     hideSelection();
 });
 
 function hideSelection() {
-    btnBaby.parentElement!.style.display = 'none';
+    const parent = btnBaby?.parentElement;
+    if (parent) {
+        parent.style.display = 'none';
+    }
 }
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    cleanupCurrentStation();
+});

@@ -1,9 +1,36 @@
 import { Peer } from 'peerjs';
+import type { MediaConnection } from 'peerjs';
 import QRCode from 'qrcode';
-import { requestWakeLock } from './utils';
+import { requestWakeLock, stopMediaStream } from './utils';
 
-export function initBabyStation(container: HTMLElement, peerId: string) {
-    requestWakeLock();
+export interface CleanupHandle {
+    cleanup: () => void;
+}
+
+export async function initBabyStation(
+    container: HTMLElement,
+    peerId: string
+): Promise<CleanupHandle> {
+    const wakeLockHandle = await requestWakeLock();
+    let stream: MediaStream | null = null;
+    let peer: Peer | null = null;
+    let activeCall: MediaConnection | null = null;
+
+    const cleanup = () => {
+        if (activeCall) {
+            activeCall.close();
+            activeCall = null;
+        }
+        if (peer) {
+            peer.destroy();
+            peer = null;
+        }
+        stopMediaStream(stream);
+        stream = null;
+        wakeLockHandle?.release();
+        console.log('Baby Station cleaned up');
+    };
+
     container.innerHTML = `
     <h2>Baby Station</h2>
     <div id="status">Initializing...</div>
@@ -18,48 +45,52 @@ export function initBabyStation(container: HTMLElement, peerId: string) {
     </div>
   `;
 
-    const statusEl = container.querySelector('#status')!;
-    const idDisplayEl = container.querySelector('#id-display')!;
-    const peerIdEl = container.querySelector('#peer-id')!;
-    const videoEl = container.querySelector<HTMLVideoElement>('#local-video')!;
-    const canvasEl = container.querySelector<HTMLCanvasElement>('#qr-code')!;
+    const statusEl = container.querySelector<HTMLElement>('#status');
+    const idDisplayEl = container.querySelector<HTMLElement>('#id-display');
+    const peerIdEl = container.querySelector<HTMLElement>('#peer-id');
+    const videoEl = container.querySelector<HTMLVideoElement>('#local-video');
+    const canvasEl = container.querySelector<HTMLCanvasElement>('#qr-code');
 
-    // 1. Get User Media
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-            videoEl.srcObject = stream;
-            statusEl.textContent = "Camera started. Connecting to signaling server...";
+    if (!statusEl || !idDisplayEl || !peerIdEl || !videoEl || !canvasEl) {
+        console.error('Required elements not found');
+        return { cleanup };
+    }
 
-            // 2. Initialize Peer
-            const peer = new Peer(peerId);
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        videoEl.srcObject = stream;
+        statusEl.textContent = 'Camera started. Connecting to signaling server...';
 
-            peer.on('open', (id) => {
-                statusEl.textContent = "Ready. Waiting for parent to connect...";
-                idDisplayEl.classList.remove('hidden');
-                peerIdEl.textContent = id;
+        peer = new Peer(peerId);
 
-                // Generate QR Code
-                const url = new URL(window.location.href);
-                url.searchParams.set('babyId', id);
+        peer.on('open', (id) => {
+            statusEl.textContent = 'Ready. Waiting for parent to connect...';
+            idDisplayEl.classList.remove('hidden');
+            peerIdEl.textContent = id;
 
-                QRCode.toCanvas(canvasEl, url.toString(), { width: 200, margin: 1 }, function (error) {
-                    if (error) console.error(error);
-                });
+            const url = new URL(window.location.href);
+            url.searchParams.set('babyId', id);
+
+            QRCode.toCanvas(canvasEl, url.toString(), { width: 200, margin: 1 }, (error) => {
+                if (error) console.error(error);
             });
-            peer.on('call', (call) => {
-                console.log("Incoming call from parent...");
-                statusEl.textContent = "Parent connected! Streaming...";
-                // Answer the call with our stream
-                call.answer(stream);
-            });
-
-            peer.on('error', (err) => {
-                console.error(err);
-                statusEl.textContent = "Error: " + err.type;
-            });
-        })
-        .catch((err) => {
-            console.error("Failed to get local stream", err);
-            statusEl.textContent = "Error accessing camera/mic: " + err.message;
         });
+
+        peer.on('call', (call) => {
+            console.log('Incoming call from parent...');
+            statusEl.textContent = 'Parent connected! Streaming...';
+            activeCall = call;
+            call.answer(stream!);
+        });
+
+        peer.on('error', (err) => {
+            console.error(err);
+            statusEl.textContent = 'Error: ' + err.type;
+        });
+    } catch (err) {
+        console.error('Failed to get local stream', err);
+        statusEl.textContent = 'Error accessing camera/mic: ' + (err as Error).message;
+    }
+
+    return { cleanup };
 }
