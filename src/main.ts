@@ -26,39 +26,39 @@ peerIdInput.value = generateRandomId();
 // Check for babyId in URL
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has('babyId')) {
-  const babyId = urlParams.get('babyId')!;
-  peerIdInput.value = babyId;
+    const babyId = urlParams.get('babyId')!;
+    peerIdInput.value = babyId;
 
-  // Auto-load Parent Station
-  stationContainer.innerHTML = '<p>Initializing Parent Station...</p>';
-  import('./parent-station').then(module => module.initParentStation(stationContainer, babyId));
-  hideSelection();
+    // Auto-load Parent Station
+    stationContainer.innerHTML = '<p>Initializing Parent Station...</p>';
+    import('./parent-station').then(module => module.initParentStation(stationContainer, babyId));
+    hideSelection();
 }
 
 btnBaby.addEventListener('click', () => {
-  const peerId = peerIdInput.value.trim();
-  if (!peerId) {
-    alert('Please enter a Peer identifier');
-    return;
-  }
-  // TODO: Load Baby Station Logic
-  stationContainer.innerHTML = '<p>Initializing Baby Station...</p>';
-  import('./baby-station').then(module => module.initBabyStation(stationContainer, peerId));
-  hideSelection();
+    const peerId = peerIdInput.value.trim();
+    if (!peerId) {
+        alert('Please enter a Room identifier');
+        return;
+    }
+    // TODO: Load Baby Station Logic
+    stationContainer.innerHTML = '<p>Initializing Baby Station...</p>';
+    import('./baby-station').then(module => module.initBabyStation(stationContainer, peerId));
+    hideSelection();
 });
 
 btnParent.addEventListener('click', () => {
-  const peerId = peerIdInput.value.trim();
-  if (!peerId) {
-    alert('Please enter a Peer identifier');
-    return;
-  }
-  // TODO: Load Parent Station Logic
-  stationContainer.innerHTML = '<p>Initializing Parent Station...</p>';
-  import('./parent-station').then(module => module.initParentStation(stationContainer, peerId));
-  hideSelection();
+    const peerId = peerIdInput.value.trim();
+    if (!peerId) {
+        alert('Please enter a Room identifier');
+        return;
+    }
+    // TODO: Load Parent Station Logic
+    stationContainer.innerHTML = '<p>Initializing Parent Station...</p>';
+    import('./parent-station').then(module => module.initParentStation(stationContainer, peerId));
+    hideSelection();
 });
 
 function hideSelection() {
-  btnBaby.parentElement!.style.display = 'none';
+    btnBaby.parentElement!.style.display = 'none';
 }
