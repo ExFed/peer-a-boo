@@ -68,6 +68,18 @@ export async function initParentStation(
         return minDelay + Math.random() * randomFactor * minDelay;
     }
 
+    // Type guard to validate OrientationMessage structure
+    function isOrientationMessage(data: unknown): data is OrientationMessage {
+        return (
+            typeof data === 'object' &&
+            data !== null &&
+            'type' in data &&
+            (data as Record<string, unknown>).type === 'orientation' &&
+            'angle' in data &&
+            typeof (data as Record<string, unknown>).angle === 'number'
+        );
+    }
+
     // Apply rotation transform to video based on baby station orientation
     function applyOrientationTransform(videoEl: HTMLVideoElement, angle: number) {
         // The baby station sends its current orientation angle
@@ -95,9 +107,8 @@ export async function initParentStation(
         });
 
         dataConnection.on('data', (data) => {
-            const message = data as OrientationMessage;
-            if (message.type === 'orientation') {
-                babyOrientationAngle = message.angle;
+            if (isOrientationMessage(data)) {
+                babyOrientationAngle = data.angle;
                 if (videoEl) {
                     applyOrientationTransform(videoEl, babyOrientationAngle);
                 }

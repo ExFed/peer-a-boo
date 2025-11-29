@@ -23,6 +23,7 @@ export async function initBabyStation(
     let activeDataConnection: DataConnection | null = null;
     let deviceChangeHandler: (() => void) | null = null;
     let orientationChangeHandler: (() => void) | null = null;
+    let useScreenOrientationAPI = false;
 
     // Send current orientation to connected parent station
     function sendOrientationUpdate() {
@@ -38,8 +39,11 @@ export async function initBabyStation(
 
     const cleanup = () => {
         if (orientationChangeHandler) {
-            screen.orientation?.removeEventListener('change', orientationChangeHandler);
-            window.removeEventListener('orientationchange', orientationChangeHandler);
+            if (useScreenOrientationAPI && screen.orientation) {
+                screen.orientation.removeEventListener('change', orientationChangeHandler);
+            } else {
+                window.removeEventListener('orientationchange', orientationChangeHandler);
+            }
             orientationChangeHandler = null;
         }
         if (deviceChangeHandler) {
@@ -265,8 +269,10 @@ export async function initBabyStation(
         
         // Use Screen Orientation API if available, fall back to window.orientationchange
         if (screen.orientation) {
+            useScreenOrientationAPI = true;
             screen.orientation.addEventListener('change', orientationChangeHandler);
         } else {
+            useScreenOrientationAPI = false;
             window.addEventListener('orientationchange', orientationChangeHandler);
         }
 
