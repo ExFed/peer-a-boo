@@ -50,21 +50,13 @@ export async function initParentStation(
         console.log('Parent Station cleaned up');
     };
 
-    // Exponential backoff; note that PeerJS keeps call connections open for 5s
-    // until giving up; setting minDelay to 5s or less causes retry logic to
-    // fail
-    const minDelay = 6000; // ms
-    const maxDelay = 10000; // ms
-    let currentDelay = minDelay;
-
-    function resetBackoff() {
-        currentDelay = minDelay;
-    }
+    // Note that PeerJS keeps call connections open for 5s until giving up;
+    // setting minDelay to less than 5s causes retry logic to fail
+    const minDelay = 5000; // ms
+    const randomFactor = 0.5; // 50%
 
     function getNextDelay(): number {
-        const delay = currentDelay;
-        currentDelay = Math.min(currentDelay * 2, maxDelay);
-        return delay;
+        return minDelay + Math.random() * randomFactor * minDelay;
     }
 
     function createDummyStream() {
@@ -132,7 +124,6 @@ export async function initParentStation(
 
         activeCall.on('stream', (incomingStream) => {
             isConnected = true;
-            resetBackoff();
             remoteStream = incomingStream;
             console.log('Received stream tracks:', incomingStream.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
             statusEl!.textContent = 'Connected! Monitoring...';
