@@ -26,6 +26,39 @@ A web-based P2P baby monitor using WebRTC.
 
 3. Open `http://localhost:5173` in your browser.
 
+### Optional: HTTPS Dev Server
+
+Some browsers require HTTPS even during development when you access the app
+from another device on your network. Use the HTTPS helper script when you need
+to test WebRTC from phones or tablets on the same LAN.
+
+1. Run the secure dev server:
+
+   ```bash
+   npm run dev:https
+   ```
+
+2. On the first run the script creates `certs/dev.cert.pem` and
+  `certs/dev.key.pem`. Trust the certificate in your OS keychain if you want to
+  remove browser warnings.
+3. Visit `https://localhost:5173` (or the LAN IP of your machine) and accept
+  the certificate warning if it appears.
+4. Repeat the command whenever you need HTTPS; the existing certificate will be
+  reused automatically.
+
+#### Share to Other Devices
+
+When another device on your network needs to load the dev server, expose Vite
+on all interfaces:
+
+```bash
+npm run dev:https -- --host 0.0.0.0
+```
+
+Replace `dev:https` with `dev` if you only need HTTP. Visit
+`https://<your-lan-ip>:5173` (or `http://` if not using HTTPS) from the other
+device and accept the certificate warning when prompted.
+
 ## How to Use
 
 1. **Baby Station**:
