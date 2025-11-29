@@ -1,6 +1,7 @@
 import { Peer } from 'peerjs';
 import type { MediaConnection } from 'peerjs';
-import { requestWakeLock, stopMediaStream } from './utils';
+import { requestWakeLock, stopMediaStream, createAudioLevelMeter } from './utils';
+import type { AudioLevelMeterHandle } from './utils';
 
 export interface CleanupHandle {
     cleanup: () => void;
@@ -15,8 +16,13 @@ export async function initParentStation(
     let activeCall: MediaConnection | null = null;
     let dummyStream: MediaStream | null = null;
     let remoteStream: MediaStream | null = null;
+    let audioMeterHandle: AudioLevelMeterHandle | null = null;
 
     const cleanup = () => {
+        if (audioMeterHandle) {
+            audioMeterHandle.stop();
+            audioMeterHandle = null;
+        }
         if (activeCall) {
             activeCall.close();
             activeCall = null;
@@ -38,6 +44,12 @@ export async function initParentStation(
     <div id="status">Connecting to ${remoteId}...</div>
     <div style="margin-top: 20px;">
       <video id="remote-video" autoplay playsinline controls style="max-width: 100%; border: 2px solid #646cff;"></video>
+    </div>
+    <div class="audio-level-container">
+      <label>Audio Level:</label>
+      <div class="audio-level-track">
+        <div id="audio-level-meter" class="audio-level-meter"></div>
+      </div>
     </div>
   `;
 
@@ -67,6 +79,14 @@ export async function initParentStation(
             statusEl.textContent = 'Connected! Monitoring...';
             videoEl.srcObject = stream;
             videoEl.play().catch((e) => console.error('Auto-play failed', e));
+
+            // Set up audio level meter
+            const meterEl = container.querySelector<HTMLElement>('#audio-level-meter');
+            if (meterEl) {
+                audioMeterHandle = createAudioLevelMeter(stream, (level) => {
+                    meterEl.style.width = `${level * 100}%`;
+                });
+            }
         });
 
         activeCall.on('close', () => {
