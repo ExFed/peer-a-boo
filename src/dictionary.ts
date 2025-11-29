@@ -8,10 +8,20 @@ export const words = [
   "happy", "brave", "calm", "daring", "eager", "fancy", "gentle", "jolly",
   "kind", "lively", "merry", "nice", "polite", "quiet", "silly", "witty", "zany",
   "red", "orange", "yellow", "green", "blue", "indigo", "violet", "purple", "pink",
-  "silver", "gold", "beige", "brown", "grey", "black", "white"
+  "silver", "gold", "beige", "brown", "grey", "black", "white",
+  "moon", "sun", "star", "planet", "comet", "meteor", "galaxy", "nebula",
+  "ocean", "river", "mountain", "forest", "desert", "valley", "canyon", "island",
+  "cloud", "rain", "snow", "storm", "wind", "breeze", "thunder", "lightning",
+  "coffee", "tea", "cookie", "cake", "pie", "bread", "toast", "jam",
+  "book", "pen", "pencil", "paper", "desk", "chair", "lamp", "clock",
+  "music", "song", "dance", "art", "paint", "draw", "sketch", "color"
 ];
 
 export function generateRandomId(): string {
-  const getRandomWord = () => words[Math.floor(Math.random() * words.length)];
-  return `${getRandomWord()}-${getRandomWord()}-${getRandomWord()}`;
+  const getRandomWord = () => {
+    const word = words[Math.floor(Math.random() * words.length)];
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  };
+  const randomNumber = Math.floor(1000 + Math.random() * 9000);
+  return `${getRandomWord()}${getRandomWord()}${getRandomWord()}${randomNumber}`;
 }
