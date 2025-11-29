@@ -40,12 +40,12 @@
 1.  Request access to `navigator.mediaDevices.getUserMedia` (Video + Audio).
 2.  Initialize `Peer` instance.
 3.  Display the local video stream on the screen (muted locally).
-4.  Generate a "Room ID" (Peer ID) and display it as a QR Code or shareable link.
+4.  Generate a "Room ID" (Peer identifier) and display it as a QR Code or shareable link.
 
 ### Phase 3: Core Logic (The "Parent" Station)
 1.  Create an input field to enter the "Room ID" (or read from URL query param).
 2.  Initialize `Peer` instance.
-3.  Connect to the Baby Station's Peer ID.
+3.  Connect to the Baby Station's Peer identifier.
 4.  Receive the remote stream and play it in a `<video>` element.
 5.  Ensure audio is enabled (browsers often block autoplaying audio; may need a "Start Monitoring" button).
 

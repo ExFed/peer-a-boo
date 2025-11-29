@@ -2,7 +2,7 @@ import { Peer } from 'peerjs';
 import QRCode from 'qrcode';
 import { requestWakeLock } from './utils';
 
-export function initBabyStation(container: HTMLElement) {
+export function initBabyStation(container: HTMLElement, peerId: string) {
   requestWakeLock();
   container.innerHTML = `
     <h2>Baby Station</h2>
@@ -31,7 +31,7 @@ export function initBabyStation(container: HTMLElement) {
       statusEl.textContent = "Camera started. Connecting to signaling server...";
 
       // 2. Initialize Peer
-      const peer = new Peer();
+      const peer = new Peer(peerId);
 
       peer.on('open', (id) => {
         statusEl.textContent = "Ready. Waiting for parent to connect...";
@@ -46,7 +46,6 @@ export function initBabyStation(container: HTMLElement) {
           if (error) console.error(error);
         });
       });
-
       peer.on('call', (call) => {
         console.log("Incoming call from parent...");
         statusEl.textContent = "Parent connected! Streaming...";
