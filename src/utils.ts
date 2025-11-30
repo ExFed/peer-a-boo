@@ -130,7 +130,19 @@ export function createAudioLevelMeter(
     };
 }
 
-// Get current device orientation angle in degrees
+/**
+ * Returns the current device orientation angle in degrees.
+ *
+ * The angle is measured clockwise from the device's natural portrait orientation.
+ * Possible values are typically 0 (portrait), 90 (landscape right), 180 (portrait upside-down), and 270 (landscape left).
+ *
+ * The function uses the following APIs in order:
+ * 1. Screen Orientation API (`screen.orientation.angle`) if available.
+ * 2. Deprecated `window.orientation` (for older iOS Safari).
+ * 3. Defaults to 0 if neither API is available.
+ *
+ * @returns {number} The orientation angle in degrees (0, 90, 180, or 270).
+ */
 export function getOrientationAngle(): number {
     // Use Screen Orientation API if available
     if (screen.orientation) {
