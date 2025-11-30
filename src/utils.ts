@@ -151,7 +151,7 @@ export function getOrientationAngle(): number {
     
     // Fallback to deprecated window.orientation (for older iOS Safari)
     if (typeof window.orientation === 'number') {
-        return window.orientation;
+        return window.orientation < 0 ? 360 + window.orientation : window.orientation;
     }
     
     // Default to 0 (portrait) if no API available
