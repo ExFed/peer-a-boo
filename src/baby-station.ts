@@ -246,6 +246,11 @@ export async function initBabyStation(
         // Handle data connection for orientation updates
         peer.on('connection', (conn) => {
             console.log('Data connection from parent...');
+            // Close previous data connection if it exists
+            if (activeDataConnection && activeDataConnection.open) {
+                console.log('Closing previous data connection...');
+                activeDataConnection.close();
+            }
             activeDataConnection = conn;
             
             conn.on('open', () => {

@@ -150,6 +150,7 @@ export function getOrientationAngle(): number {
     }
     
     // Fallback to deprecated window.orientation (for older iOS Safari)
+    // Note: window.orientation returns -90 for landscape-left while screen.orientation.angle returns 270
     if (typeof window.orientation === 'number') {
         return window.orientation < 0 ? 360 + window.orientation : window.orientation;
     }

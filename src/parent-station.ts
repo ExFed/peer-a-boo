@@ -22,7 +22,6 @@ export async function initParentStation(
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     let isConnected = false;
-    let babyOrientationAngle = 0;
     let videoEl: HTMLVideoElement | null = null;
     let statusEl: HTMLElement | null = null;
 
@@ -80,13 +79,21 @@ export async function initParentStation(
         );
     }
 
-    // Apply rotation transform to video based on baby station orientation
-    function applyOrientationTransform(videoEl: HTMLVideoElement, angle: number) {
+    // Correct video orientation by applying counter-rotation based on baby station orientation
+    function correctVideoOrientation(videoEl: HTMLVideoElement, angle: number) {
         // The baby station sends its current orientation angle
         // We need to apply a counter-rotation to display the video correctly
         const rotation = -angle;
+        // Normalize rotation to [0, 360)
+        const normalizedRotation = ((rotation % 360) + 360) % 360;
         videoEl.style.transform = rotation !== 0 ? `rotate(${rotation}deg)` : '';
-        console.log('Applied orientation transform:', rotation);
+        // Adjust transform-origin for 90°/270° rotations to keep video centered
+        if (normalizedRotation === 90 || normalizedRotation === 270) {
+            videoEl.style.transformOrigin = 'center center';
+        } else {
+            videoEl.style.transformOrigin = '';
+        }
+        console.log('Applied orientation correction:', rotation);
     }
 
     // Connect to baby station's data channel for orientation updates
@@ -108,9 +115,8 @@ export async function initParentStation(
 
         dataConnection.on('data', (data) => {
             if (isOrientationMessage(data)) {
-                babyOrientationAngle = data.angle;
                 if (videoEl) {
-                    applyOrientationTransform(videoEl, babyOrientationAngle);
+                    correctVideoOrientation(videoEl, data.angle);
                 }
             }
         });
@@ -122,6 +128,9 @@ export async function initParentStation(
 
         dataConnection.on('error', (err) => {
             console.error('Data connection error:', err);
+            dataConnection = null;
+            // Attempt to reconnect after a short delay
+            setTimeout(connectDataChannel, 1000);
         });
     }
 
@@ -196,6 +205,9 @@ export async function initParentStation(
             videoEl!.srcObject = incomingStream;
             videoEl!.play().catch((e) => console.error('Auto-play failed', e));
 
+            // Establish data channel for orientation updates after stream is connected
+            connectDataChannel();
+
             // Set up audio level meter if stream has audio tracks
             const meterEl = container.querySelector<HTMLElement>('#audio-level-meter');
             if (meterEl && incomingStream.getAudioTracks().length > 0) {
@@ -232,7 +244,6 @@ export async function initParentStation(
 
         peer.on('open', () => {
             console.log('Connected to signaling server');
-            connectDataChannel();
             attemptCall();
         });
 
