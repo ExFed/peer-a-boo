@@ -49,12 +49,15 @@ export async function initBabyStation(
         <select id="microphone-select"></select>
       </div>
     </div>
-    <div id="id-display" class="hidden">
-      <p>Scan this code or enter ID on Parent device:</p>
-      <canvas id="qr-code"></canvas>
-      <br>
-      <h3 id="peer-id" style="font-family: monospace; background: #333; padding: 10px; border-radius: 4px; display: inline-block;"></h3>
-    </div>
+        <div id="id-display" class="hidden">
+            <details id="qr-section" open>
+                <summary>Connection QR Code</summary>
+                <p>Scan this code or enter ID on Parent device:</p>
+                <canvas id="qr-code"></canvas>
+                <br>
+                <h3 id="peer-id" style="font-family: monospace; background: #333; padding: 10px; border-radius: 4px; display: inline-block;"></h3>
+            </details>
+        </div>
     <div style="margin-top: 20px;">
       <video id="local-video" autoplay muted playsinline style="max-width: 100%; border: 2px solid #646cff;"></video>
     </div>
@@ -67,11 +70,17 @@ export async function initBabyStation(
     const canvasEl = container.querySelector<HTMLCanvasElement>('#qr-code');
     const cameraSelect = container.querySelector<HTMLSelectElement>('#camera-select');
     const micSelect = container.querySelector<HTMLSelectElement>('#microphone-select');
+    const qrSection = container.querySelector<HTMLDetailsElement>('#qr-section');
 
     if (!statusEl || !idDisplayEl || !peerIdEl || !videoEl || !canvasEl || !cameraSelect || !micSelect) {
         console.error('Required elements not found');
         return { cleanup };
     }
+
+    const setQrSectionOpen = (shouldOpen: boolean) => {
+        if (!qrSection) return;
+        qrSection.open = shouldOpen;
+    };
 
     // Populate device dropdowns, preserving current selection if possible
     async function populateDevices() {
@@ -207,8 +216,30 @@ export async function initBabyStation(
             console.log('Incoming call from parent...');
             console.log('Stream tracks:', stream?.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
             statusEl.textContent = 'Parent connected! Streaming...';
+            if (activeCall && activeCall !== call) {
+                activeCall.close();
+            }
             activeCall = call;
+
+            let callClosed = false;
+            const handleCallTerminated = (message?: string) => {
+                if (callClosed) return;
+                callClosed = true;
+                if (activeCall === call) {
+                    activeCall = null;
+                }
+                statusEl.textContent = message ?? 'Parent disconnected. Waiting for parent to connect...';
+                setQrSectionOpen(true);
+            };
+
+            call.on('close', () => handleCallTerminated());
+            call.on('error', (err) => {
+                console.error('Call error', err);
+                handleCallTerminated('Call error. Waiting for parent to reconnect...');
+            });
+
             call.answer(stream!);
+            setQrSectionOpen(false);
         });
 
         peer.on('error', (err) => {
