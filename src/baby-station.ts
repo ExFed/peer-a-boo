@@ -1,10 +1,15 @@
 import { Peer } from 'peerjs';
-import type { MediaConnection } from 'peerjs';
+import type { MediaConnection, DataConnection } from 'peerjs';
 import QRCode from 'qrcode';
-import { requestWakeLock, stopMediaStream, enumerateMediaDevices } from './utils';
+import { requestWakeLock, stopMediaStream, enumerateMediaDevices, getOrientationAngle } from './utils';
 
 export interface CleanupHandle {
     cleanup: () => void;
+}
+
+export interface OrientationMessage {
+    type: 'orientation';
+    angle: number;
 }
 
 export async function initBabyStation(
@@ -15,12 +20,39 @@ export async function initBabyStation(
     let stream: MediaStream | null = null;
     let peer: Peer | null = null;
     let activeCall: MediaConnection | null = null;
+    let activeDataConnection: DataConnection | null = null;
     let deviceChangeHandler: (() => void) | null = null;
+    let orientationChangeHandler: (() => void) | null = null;
+    let useScreenOrientationAPI = false;
+
+    // Send current orientation to connected parent station
+    function sendOrientationUpdate() {
+        if (activeDataConnection && activeDataConnection.open) {
+            const message: OrientationMessage = {
+                type: 'orientation',
+                angle: getOrientationAngle()
+            };
+            activeDataConnection.send(message);
+            console.log('Sent orientation update:', message.angle);
+        }
+    }
 
     const cleanup = () => {
+        if (orientationChangeHandler) {
+            if (useScreenOrientationAPI && screen.orientation) {
+                screen.orientation.removeEventListener('change', orientationChangeHandler);
+            } else {
+                window.removeEventListener('orientationchange', orientationChangeHandler);
+            }
+            orientationChangeHandler = null;
+        }
         if (deviceChangeHandler) {
             navigator.mediaDevices.removeEventListener('devicechange', deviceChangeHandler);
             deviceChangeHandler = null;
+        }
+        if (activeDataConnection) {
+            activeDataConnection.close();
+            activeDataConnection = null;
         }
         if (activeCall) {
             activeCall.close();
@@ -241,6 +273,44 @@ export async function initBabyStation(
             call.answer(stream!);
             setQrSectionOpen(false);
         });
+
+        // Handle data connection for orientation updates
+        peer.on('connection', (conn) => {
+            console.log('Data connection from parent...');
+            // Close previous data connection if it exists
+            if (activeDataConnection && activeDataConnection.open) {
+                console.log('Closing previous data connection...');
+                activeDataConnection.close();
+            }
+            activeDataConnection = conn;
+            
+            conn.on('open', () => {
+                console.log('Data connection opened');
+                // Send initial orientation
+                sendOrientationUpdate();
+            });
+
+            conn.on('close', () => {
+                console.log('Data connection closed');
+                if (activeDataConnection === conn) {
+                    activeDataConnection = null;
+                }
+            });
+        });
+
+        // Set up orientation change listener
+        orientationChangeHandler = () => {
+            sendOrientationUpdate();
+        };
+        
+        // Use Screen Orientation API if available, fall back to window.orientationchange
+        if (screen.orientation) {
+            useScreenOrientationAPI = true;
+            screen.orientation.addEventListener('change', orientationChangeHandler);
+        } else {
+            useScreenOrientationAPI = false;
+            window.addEventListener('orientationchange', orientationChangeHandler);
+        }
 
         peer.on('error', (err) => {
             console.error(err);

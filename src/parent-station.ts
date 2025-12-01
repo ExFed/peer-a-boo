@@ -1,7 +1,8 @@
 import { Peer } from 'peerjs';
-import type { MediaConnection } from 'peerjs';
+import type { MediaConnection, DataConnection } from 'peerjs';
 import { requestWakeLock, stopMediaStream, createAudioLevelMeter } from './utils';
 import type { AudioLevelMeterHandle } from './utils';
+import type { OrientationMessage } from './baby-station';
 
 export interface CleanupHandle {
     cleanup: () => void;
@@ -14,12 +15,15 @@ export async function initParentStation(
     const wakeLockHandle = await requestWakeLock();
     let peer: Peer | null = null;
     let activeCall: MediaConnection | null = null;
+    let dataConnection: DataConnection | null = null;
     let dummyStream: MediaStream | null = null;
     let dummyAudioCtx: AudioContext | null = null;
     let remoteStream: MediaStream | null = null;
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     let isConnected = false;
+    let videoEl: HTMLVideoElement | null = null;
+    let statusEl: HTMLElement | null = null;
 
     const cleanup = () => {
         if (retryTimeout) {
@@ -29,6 +33,10 @@ export async function initParentStation(
         if (audioMeterHandle) {
             audioMeterHandle.stop();
             audioMeterHandle = null;
+        }
+        if (dataConnection) {
+            dataConnection.close();
+            dataConnection = null;
         }
         if (activeCall) {
             activeCall.close();
@@ -57,6 +65,73 @@ export async function initParentStation(
 
     function getNextDelay(): number {
         return minDelay + Math.random() * randomFactor * minDelay;
+    }
+
+    // Type guard to validate OrientationMessage structure
+    function isOrientationMessage(data: unknown): data is OrientationMessage {
+        return (
+            typeof data === 'object' &&
+            data !== null &&
+            'type' in data &&
+            (data as Record<string, unknown>).type === 'orientation' &&
+            'angle' in data &&
+            typeof (data as Record<string, unknown>).angle === 'number'
+        );
+    }
+
+    // Correct video orientation by applying counter-rotation based on baby station orientation
+    function correctVideoOrientation(videoEl: HTMLVideoElement, angle: number) {
+        // The baby station sends its current orientation angle
+        // We need to apply a counter-rotation to display the video correctly
+        const rotation = -angle;
+        // Normalize rotation to [0, 360)
+        const normalizedRotation = ((rotation % 360) + 360) % 360;
+        videoEl.style.transform = rotation !== 0 ? `rotate(${rotation}deg)` : '';
+        // Adjust transform-origin for 90°/270° rotations to keep video centered
+        if (normalizedRotation === 90 || normalizedRotation === 270) {
+            videoEl.style.transformOrigin = 'center center';
+        } else {
+            videoEl.style.transformOrigin = '';
+        }
+        console.log('Applied orientation correction:', rotation);
+    }
+
+    // Connect to baby station's data channel for orientation updates
+    function connectDataChannel() {
+        if (!peer || !peer.open) {
+            return;
+        }
+
+        // Close existing connection if any
+        if (dataConnection) {
+            dataConnection.close();
+        }
+
+        dataConnection = peer.connect(remoteId);
+
+        dataConnection.on('open', () => {
+            console.log('Data connection opened to baby station');
+        });
+
+        dataConnection.on('data', (data) => {
+            if (isOrientationMessage(data)) {
+                if (videoEl) {
+                    correctVideoOrientation(videoEl, data.angle);
+                }
+            }
+        });
+
+        dataConnection.on('close', () => {
+            console.log('Data connection closed');
+            dataConnection = null;
+        });
+
+        dataConnection.on('error', (err) => {
+            console.error('Data connection error:', err);
+            dataConnection = null;
+            // Attempt to reconnect after a short delay
+            setTimeout(connectDataChannel, 1000);
+        });
     }
 
     function createDummyStream() {
@@ -130,6 +205,9 @@ export async function initParentStation(
             videoEl!.srcObject = incomingStream;
             videoEl!.play().catch((e) => console.error('Auto-play failed', e));
 
+            // Establish data channel for orientation updates after stream is connected
+            connectDataChannel();
+
             // Set up audio level meter if stream has audio tracks
             const meterEl = container.querySelector<HTMLElement>('#audio-level-meter');
             if (meterEl && incomingStream.getAudioTracks().length > 0) {
@@ -198,8 +276,8 @@ export async function initParentStation(
     </div>
   `;
 
-    const statusEl = container.querySelector<HTMLElement>('#status');
-    const videoEl = container.querySelector<HTMLVideoElement>('#remote-video');
+    statusEl = container.querySelector<HTMLElement>('#status');
+    videoEl = container.querySelector<HTMLVideoElement>('#remote-video');
 
     if (!statusEl || !videoEl) {
         console.error('Required elements not found');
