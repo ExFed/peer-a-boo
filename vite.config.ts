@@ -37,5 +37,8 @@ export default defineConfig(({ command }) => {
         // Use relative base path so the app works on https://<user>.github.io/<repo>/
         base: './',
         server: https ? { https } : undefined,
+        test: {
+            environment: 'jsdom',
+        },
     };
 });
