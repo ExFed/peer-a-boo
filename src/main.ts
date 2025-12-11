@@ -166,6 +166,7 @@ window.addEventListener('popstate', (event) => {
             : null);
     const nextRoomId = state?.roomId ?? roomIdParam ?? roomIdInput.value;
 
+    cleanupCurrentStation();
     renderStation(nextStation, nextStation ? nextRoomId : null, {
         skipHistory: true,
     });

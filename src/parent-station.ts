@@ -20,8 +20,10 @@ export async function initParentStation(
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     let isConnected = false;
+    let isCleaningUp = false;
 
     const cleanup = () => {
+        isCleaningUp = true;
         if (retryTimeout) {
             clearTimeout(retryTimeout);
             retryTimeout = null;
@@ -92,6 +94,9 @@ export async function initParentStation(
     }
 
     function scheduleRetry() {
+        if (isCleaningUp) {
+            return;
+        }
         if (retryTimeout) {
             clearTimeout(retryTimeout);
         }
