@@ -106,11 +106,11 @@ describe('enumerateMediaDevices', () => {
         'splits devices into cameras and microphones with defaults',
         async () => {
             const enumerateDevices = vi.fn().mockResolvedValue([
-                { kind: 'videoinput', deviceId: 'v1', label: '' },
-                { kind: 'videoinput', deviceId: 'v2', label: 'Front Cam' },
-                { kind: 'audioinput', deviceId: 'a1', label: '' },
-                { kind: 'audioinput', deviceId: 'a2', label: 'Desk Mic' },
-                { kind: 'audiooutput', deviceId: 'ao1', label: 'Speaker' },
+                { kind: 'videoinput', deviceId: 'v1', label: '', groupId: 'g1', toJSON() { return this; } },
+                { kind: 'videoinput', deviceId: 'v2', label: 'Front Cam', groupId: 'g2', toJSON() { return this; } },
+                { kind: 'audioinput', deviceId: 'a1', label: '', groupId: 'g3', toJSON() { return this; } },
+                { kind: 'audioinput', deviceId: 'a2', label: 'Desk Mic', groupId: 'g4', toJSON() { return this; } },
+                { kind: 'audiooutput', deviceId: 'ao1', label: 'Speaker', groupId: 'g5', toJSON() { return this; } },
             ] satisfies MediaDeviceInfo[]);
 
             const fakeNavigator = {
