@@ -1,7 +1,7 @@
 import { Peer } from 'peerjs';
 import type { MediaConnection } from 'peerjs';
 import QRCode from 'qrcode';
-import { requestWakeLock, stopMediaStream, enumerateMediaDevices } from './utils';
+import { requestWakeLock, stopMediaStream, enumerateMediaDevices, querySelectorOrThrow } from './utils';
 
 export interface CleanupHandle {
     cleanup: () => void;
@@ -9,7 +9,7 @@ export interface CleanupHandle {
 
 export async function initBabyStation(
     container: HTMLElement,
-    peerId: string
+    roomId: string
 ): Promise<CleanupHandle> {
     const wakeLockHandle = await requestWakeLock();
     let stream: MediaStream | null = null;
@@ -37,8 +37,8 @@ export async function initBabyStation(
     };
 
     container.innerHTML = `
-    <h2>Baby Station</h2>
-    <div id="status">Initializing...</div>
+    <h2>Baby Station ${roomId}</h2>
+    <div id="status">...</div>
     <div id="device-selection" class="device-selection">
       <div class="device-select-group">
         <label for="camera-select">Camera:</label>
@@ -63,19 +63,14 @@ export async function initBabyStation(
     </div>
   `;
 
-    const statusEl = container.querySelector<HTMLElement>('#status');
-    const idDisplayEl = container.querySelector<HTMLElement>('#id-display');
-    const peerIdEl = container.querySelector<HTMLElement>('#peer-id');
-    const videoEl = container.querySelector<HTMLVideoElement>('#local-video');
-    const canvasEl = container.querySelector<HTMLCanvasElement>('#qr-code');
-    const cameraSelect = container.querySelector<HTMLSelectElement>('#camera-select');
-    const micSelect = container.querySelector<HTMLSelectElement>('#microphone-select');
-    const qrSection = container.querySelector<HTMLDetailsElement>('#qr-section');
-
-    if (!statusEl || !idDisplayEl || !peerIdEl || !videoEl || !canvasEl || !cameraSelect || !micSelect) {
-        console.error('Required elements not found');
-        return { cleanup };
-    }
+    const statusEl = querySelectorOrThrow<HTMLElement>(container, '#status');
+    const idDisplayEl = querySelectorOrThrow<HTMLElement>(container, '#id-display');
+    const roomIdEl = querySelectorOrThrow<HTMLElement>(container, '#peer-id');
+    const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#local-video');
+    const canvasEl = querySelectorOrThrow<HTMLCanvasElement>(container, '#qr-code');
+    const cameraSelect = querySelectorOrThrow<HTMLSelectElement>(container, '#camera-select');
+    const micSelect = querySelectorOrThrow<HTMLSelectElement>(container, '#microphone-select');
+    const qrSection = querySelectorOrThrow<HTMLDetailsElement>(container, '#qr-section');
 
     const setQrSectionOpen = (shouldOpen: boolean) => {
         if (!qrSection) return;
@@ -195,17 +190,18 @@ export async function initBabyStation(
             }
         }
 
-        statusEl.textContent = 'Camera started. Connecting to signaling server...';
+        statusEl.textContent = 'Connecting to signaling server...';
 
-        peer = new Peer(peerId);
+        peer = new Peer(roomId);
 
         peer.on('open', (id) => {
             statusEl.textContent = 'Ready. Waiting for parent to connect...';
             idDisplayEl.classList.remove('hidden');
-            peerIdEl.textContent = id;
+            roomIdEl.textContent = id;
 
             const url = new URL(window.location.href);
-            url.searchParams.set('babyId', id);
+            url.searchParams.set('roomId', id);
+            url.searchParams.set('station', 'parent');
 
             QRCode.toCanvas(canvasEl, url.toString(), { width: 200, margin: 1 }, (error) => {
                 if (error) console.error(error);

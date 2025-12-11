@@ -1,6 +1,6 @@
 import { Peer } from 'peerjs';
 import type { MediaConnection } from 'peerjs';
-import { requestWakeLock, stopMediaStream, createAudioLevelMeter } from './utils';
+import { requestWakeLock, stopMediaStream, createAudioLevelMeter, querySelectorOrThrow } from './utils';
 import type { AudioLevelMeterHandle } from './utils';
 
 export interface CleanupHandle {
@@ -9,7 +9,7 @@ export interface CleanupHandle {
 
 export async function initParentStation(
     container: HTMLElement,
-    remoteId: string
+    roomId: string
 ): Promise<CleanupHandle> {
     const wakeLockHandle = await requestWakeLock();
     let peer: Peer | null = null;
@@ -96,7 +96,7 @@ export async function initParentStation(
             clearTimeout(retryTimeout);
         }
         const delay = getNextDelay();
-        statusEl!.textContent = `Connection lost. Retrying in ${Math.round(delay / 1000)}s...`;
+        statusEl!.textContent = `Connecting to server... Retry in ${Math.round(delay / 1000)}s`;
         retryTimeout = setTimeout(attemptCall, delay);
     }
 
@@ -109,9 +109,7 @@ export async function initParentStation(
 
         if (!peer.open) {
             // Peer not connected to server yet, wait and retry
-            const delay = getNextDelay();
-            statusEl!.textContent = `Connecting to server... Retry in ${Math.round(delay / 1000)}s`;
-            retryTimeout = setTimeout(attemptCall, delay);
+            scheduleRetry();
             return;
         }
 
@@ -120,7 +118,7 @@ export async function initParentStation(
         statusEl!.textContent = `Calling Baby Station...`;
 
         const stream = createDummyStream();
-        activeCall = peer.call(remoteId, stream);
+        activeCall = peer.call(roomId, stream);
 
         activeCall.on('stream', (incomingStream) => {
             isConnected = true;
@@ -131,7 +129,6 @@ export async function initParentStation(
             videoEl!.play().catch((e) => console.error('Auto-play failed', e));
 
             // Set up audio level meter if stream has audio tracks
-            const meterEl = container.querySelector<HTMLElement>('#audio-level-meter');
             if (meterEl && incomingStream.getAudioTracks().length > 0) {
                 if (audioMeterHandle) {
                     audioMeterHandle.stop();
@@ -146,7 +143,6 @@ export async function initParentStation(
 
         activeCall.on('close', () => {
             isConnected = false;
-            statusEl!.textContent = 'Call closed. Reconnecting...';
             scheduleRetry();
         });
 
@@ -184,9 +180,8 @@ export async function initParentStation(
     }
 
     container.innerHTML = `
-    <h2>Parent Station</h2>
-    <h3>${remoteId}</h3>
-    <div id="status">Connecting...</div>
+    <h2>Parent Station ${roomId}</h2>
+    <div id="status">...</div>
     <div style="margin-top: 20px;">
       <video id="remote-video" autoplay playsinline controls style="max-width: 100%; border: 2px solid #646cff;"></video>
     </div>
@@ -198,13 +193,9 @@ export async function initParentStation(
     </div>
   `;
 
-    const statusEl = container.querySelector<HTMLElement>('#status');
-    const videoEl = container.querySelector<HTMLVideoElement>('#remote-video');
-
-    if (!statusEl || !videoEl) {
-        console.error('Required elements not found');
-        return { cleanup };
-    }
+    const statusEl = querySelectorOrThrow<HTMLElement>(container, '#status');
+    const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#remote-video');
+    const meterEl = querySelectorOrThrow<HTMLElement>(container, '#audio-level-meter');
 
     // Start the connection process
     initPeer();

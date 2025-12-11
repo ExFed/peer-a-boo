@@ -2,6 +2,17 @@ export interface WakeLockHandle {
     release: () => Promise<void>;
 }
 
+export function querySelectorOrThrow<E extends Element = Element>(
+    parent: ParentNode,
+    selector: string,
+): E {
+    const element = parent.querySelector<E>(selector);
+    if (!element) {
+        throw new Error(`Element not found for selector: ${selector}`);
+    }
+    return element;
+}
+
 export async function requestWakeLock(): Promise<WakeLockHandle | null> {
     if (!('wakeLock' in navigator)) {
         console.warn('Wake Lock API not supported.');

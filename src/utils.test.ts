@@ -2,9 +2,11 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
     createAudioLevelMeter,
     enumerateMediaDevices,
+    querySelectorOrThrow,
     requestWakeLock,
     stopMediaStream,
 } from './utils';
+
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -182,5 +184,42 @@ describe('createAudioLevelMeter', () => {
         expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
         expect(disconnect).toHaveBeenCalledTimes(1);
         expect(close).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('querySelectorOrThrow', () => {
+    test('returns the element when found', () => {
+        const child = document.createElement('div');
+        child.className = 'target';
+        const parent = document.createElement('div');
+        parent.appendChild(child);
+
+        const result = querySelectorOrThrow(parent, '.target');
+
+        expect(result).toBe(child);
+    });
+
+    test('throws an error when element is not found', () => {
+        const parent = document.createElement('div');
+
+        expect(() => querySelectorOrThrow(parent, '.missing')).toThrowError(
+            'Element not found for selector: .missing',
+        );
+    });
+
+    test('queries within the provided parent only', () => {
+        const parent = document.createElement('div');
+        const target = document.createElement('span');
+        target.id = 'inside';
+        parent.appendChild(target);
+
+        const parentSpy = vi.spyOn(parent, 'querySelector');
+        const documentSpy = vi.spyOn(document, 'querySelector');
+
+        const result = querySelectorOrThrow(parent, '#inside');
+
+        expect(result).toBe(target);
+        expect(parentSpy).toHaveBeenCalledWith('#inside');
+        expect(documentSpy).not.toHaveBeenCalled();
     });
 });
