@@ -39,7 +39,7 @@ export async function initBabyStation(
     container.innerHTML = `
     <h2>Baby Station ${roomId}</h2>
     <div id="status">...</div>
-    <div id="device-selection" class="device-selection">
+    <details id="device-selection" class="device-selection">
       <div class="device-select-group">
         <label for="camera-select">Camera:</label>
         <select id="camera-select"></select>
@@ -48,16 +48,16 @@ export async function initBabyStation(
         <label for="microphone-select">Microphone:</label>
         <select id="microphone-select"></select>
       </div>
+    </details>
+    <div id="id-display" class="hidden">
+        <details id="qr-section" open>
+            <summary>Connection QR Code</summary>
+            <p>Scan this code or enter ID on Parent device:</p>
+            <canvas id="qr-code"></canvas>
+            <br>
+            <h3 id="peer-id" style="font-family: monospace; background: #333; padding: 10px; border-radius: 4px; display: inline-block;"></h3>
+        </details>
     </div>
-        <div id="id-display" class="hidden">
-            <details id="qr-section" open>
-                <summary>Connection QR Code</summary>
-                <p>Scan this code or enter ID on Parent device:</p>
-                <canvas id="qr-code"></canvas>
-                <br>
-                <h3 id="peer-id" style="font-family: monospace; background: #333; padding: 10px; border-radius: 4px; display: inline-block;"></h3>
-            </details>
-        </div>
     <div style="margin-top: 20px;">
       <video id="local-video" autoplay muted playsinline style="max-width: 100%; border: 2px solid #646cff;"></video>
     </div>
