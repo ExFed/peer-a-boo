@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-01-04
-**Commit:** fa21905
+**Generated:** 2026-01-05
+**Commit:** 1de92f4
 **Branch:** main
 
 ## OVERVIEW
@@ -29,8 +29,9 @@ peer-a-boo/
 | Task | Location | Notes |
 |------|----------|-------|
 | Modify camera/mic handling | `src/baby-station.ts` | Device selection, stream management |
-| Modify video display | `src/parent-station.ts` | Audio meter, reconnection logic |
+| Modify video display | `src/parent-station.ts` | Audio meter, motion detection, reconnection logic |
 | Add shared utilities | `src/utils.ts` | Wake lock, media stream helpers |
+| Motion detection | `src/motion-detection.ts` | Frame differencing, grayscale conversion, threshold |
 | Change room ID format | `src/dictionary.ts` | Word list + ID generator |
 | Modify routing/state | `src/main.ts` | URL params, history API |
 | Fix build/deploy | `vite.config.ts`, `.github/workflows/deploy.yml` | |
@@ -62,7 +63,7 @@ peer-a-boo/
 npm run dev          # HTTP dev server
 npm run dev:https    # HTTPS dev server (for LAN/mobile testing)
 npm run build        # tsc + vite build
-npm run test         # vitest
+npm run test -- --run  # vitest (no watch mode - prevents bash timeout)
 npm run preview      # Preview production build
 ```
 
@@ -72,3 +73,5 @@ npm run preview      # Preview production build
 - **PeerJS retry timing**: Parent station waits 5s+ between retries (PeerJS connection timeout)
 - **Back camera default**: Baby station prefers `facingMode: environment` on mobile
 - **Audio meter scaling**: RMS value scaled 3x for visibility (`level * 3`)
+- **Motion detection**: Frame differencing on 160x120 downsampled video, 2-second alert cooldown
+- **Test timeout fix**: Always use `npm test -- --run` to disable watch mode (prevents agent bash timeout)
