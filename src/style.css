@@ -136,3 +136,126 @@ video {
     border-radius: 6px;
     transition: width 0.05s ease-out;
 }
+
+/* Motion Level Meter */
+.motion-level-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #1a1a1a;
+    border-radius: 8px;
+}
+
+.motion-level-container label {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+.motion-level-track {
+    flex: 1;
+    height: 12px;
+    background: #333;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.motion-level-meter {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(to right, #60a5fa, #a78bfa, #f472b6);
+    border-radius: 6px;
+    transition: width 0.1s ease-out;
+}
+
+/* Motion Controls */
+.motion-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #1a1a1a;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.motion-controls label {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+.motion-controls input[type="range"] {
+    flex: 1;
+    min-width: 100px;
+    height: 6px;
+    appearance: none;
+    background: #333;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.motion-controls input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #646cff;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.motion-controls input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #646cff;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+}
+
+.motion-controls #sensitivity-value {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.87);
+    min-width: 2ch;
+}
+
+.pause-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.pause-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Motion Alert Banner */
+.motion-alert {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.125rem;
+    text-align: center;
+    animation: pulse 0.5s ease-in-out infinite alternate;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulse {
+    from {
+        opacity: 0.9;
+        transform: scale(1);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1.02);
+    }
+}

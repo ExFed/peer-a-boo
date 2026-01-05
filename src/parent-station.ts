@@ -2,6 +2,8 @@ import { Peer } from 'peerjs';
 import type { MediaConnection } from 'peerjs';
 import { requestWakeLock, stopMediaStream, createAudioLevelMeter, querySelectorOrThrow } from './utils';
 import type { AudioLevelMeterHandle } from './utils';
+import { createMotionDetector } from './motion-detection';
+import type { MotionDetectorHandle } from './motion-detection';
 
 export interface CleanupHandle {
     cleanup: () => void;
@@ -18,7 +20,9 @@ export async function initParentStation(
     let dummyAudioCtx: AudioContext | null = null;
     let remoteStream: MediaStream | null = null;
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
+    let motionDetectorHandle: MotionDetectorHandle | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    let motionAlertTimeout: ReturnType<typeof setTimeout> | null = null;
     let isConnected = false;
     let isCleaningUp = false;
 
@@ -27,6 +31,14 @@ export async function initParentStation(
         if (retryTimeout) {
             clearTimeout(retryTimeout);
             retryTimeout = null;
+        }
+        if (motionAlertTimeout) {
+            clearTimeout(motionAlertTimeout);
+            motionAlertTimeout = null;
+        }
+        if (motionDetectorHandle) {
+            motionDetectorHandle.stop();
+            motionDetectorHandle = null;
         }
         if (audioMeterHandle) {
             audioMeterHandle.stop();
@@ -187,7 +199,8 @@ export async function initParentStation(
     container.innerHTML = `
     <h2>Parent Station ${roomId}</h2>
     <div id="status">...</div>
-    <div style="margin-top: 20px;">
+    <div id="motion-alert" class="motion-alert hidden">Motion Detected!</div>
+    <div style="margin-top: 20px; position: relative;">
       <video id="remote-video" autoplay playsinline controls style="max-width: 100%; border: 2px solid #646cff;"></video>
     </div>
     <div class="audio-level-container">
@@ -196,11 +209,80 @@ export async function initParentStation(
         <div id="audio-level-meter" class="audio-level-meter"></div>
       </div>
     </div>
+    <div class="motion-level-container">
+      <label>Motion Level:</label>
+      <div class="motion-level-track">
+        <div id="motion-level-meter" class="motion-level-meter"></div>
+      </div>
+    </div>
+    <div class="motion-controls">
+      <label for="motion-sensitivity">Sensitivity:</label>
+      <input type="range" id="motion-sensitivity" min="1" max="100" value="50" />
+      <span id="sensitivity-value">50</span>
+      <label class="pause-toggle">
+        <input type="checkbox" id="pause-motion" />
+        Pause Detection
+      </label>
+    </div>
   `;
 
     const statusEl = querySelectorOrThrow<HTMLElement>(container, '#status');
     const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#remote-video');
     const meterEl = querySelectorOrThrow<HTMLElement>(container, '#audio-level-meter');
+    const motionMeterEl = querySelectorOrThrow<HTMLElement>(container, '#motion-level-meter');
+    const motionAlertEl = querySelectorOrThrow<HTMLElement>(container, '#motion-alert');
+    const sensitivitySlider = querySelectorOrThrow<HTMLInputElement>(container, '#motion-sensitivity');
+    const sensitivityValue = querySelectorOrThrow<HTMLElement>(container, '#sensitivity-value');
+    const pauseCheckbox = querySelectorOrThrow<HTMLInputElement>(container, '#pause-motion');
+
+    function showMotionAlert() {
+        motionAlertEl.classList.remove('hidden');
+        if (motionAlertTimeout) {
+            clearTimeout(motionAlertTimeout);
+        }
+        motionAlertTimeout = setTimeout(() => {
+            motionAlertEl.classList.add('hidden');
+        }, 2000);
+    }
+
+    function setupMotionDetection() {
+        if (motionDetectorHandle) {
+            motionDetectorHandle.stop();
+        }
+
+        motionDetectorHandle = createMotionDetector(videoEl, {
+            onMotionLevel: (level) => {
+                motionMeterEl.style.width = `${level * 100}%`;
+            },
+            onMotionAlert: showMotionAlert,
+        });
+
+        const sliderValue = parseInt(sensitivitySlider.value, 10);
+        const threshold = (101 - sliderValue) / 1000;
+        motionDetectorHandle.setThreshold(threshold);
+        motionDetectorHandle.start();
+    }
+
+    sensitivitySlider.addEventListener('input', () => {
+        const value = parseInt(sensitivitySlider.value, 10);
+        sensitivityValue.textContent = String(value);
+        if (motionDetectorHandle) {
+            const threshold = (101 - value) / 1000;
+            motionDetectorHandle.setThreshold(threshold);
+        }
+    });
+
+    pauseCheckbox.addEventListener('change', () => {
+        if (motionDetectorHandle) {
+            motionDetectorHandle.setPaused(pauseCheckbox.checked);
+        }
+    });
+
+    videoEl.addEventListener('play', () => {
+        if (!motionDetectorHandle) {
+            setupMotionDetection();
+        }
+    });
 
     // Start the connection process
     initPeer();
