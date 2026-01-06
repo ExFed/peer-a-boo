@@ -54,8 +54,8 @@ export async function initBabyStation(
         
         <div id="settings-drawer" class="settings-drawer">
             <div class="drawer-header">
-                <h3 class="drawer-title">Baby Station Settings</h3>
                 <button id="close-settings" class="close-btn">×</button>
+                <h3 class="drawer-title">Baby Station Settings</h3>
             </div>
             
             <div class="device-selection">
@@ -103,7 +103,7 @@ export async function initBabyStation(
     const closeSettingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#close-settings');
 
     settingsBtn.addEventListener('click', () => {
-        settingsDrawer.classList.add('open');
+        settingsDrawer.classList.toggle('open');
     });
 
     closeSettingsBtn.addEventListener('click', () => {
