@@ -171,12 +171,55 @@ video {
     box-shadow: 0 0 0 4px rgba(100, 108, 255, 0.2);
 }
 
+.landing-footer {
+    margin-top: var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.github-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.03);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.github-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--color-primary);
+    color: white;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+.github-link svg {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.github-link:hover svg {
+    transform: rotate(10deg) scale(1.1);
+    stroke: var(--color-primary);
+}
+
 .app-version {
     font-family: monospace;
     font-size: 0.75rem;
     color: var(--color-text-muted);
-    opacity: 0.5;
-    margin-top: var(--spacing-xl);
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+
+.landing-footer:hover .app-version {
+    opacity: 0.6;
 }
 
 .role-selection {
