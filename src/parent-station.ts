@@ -168,11 +168,27 @@ export async function initParentStation(
     const settingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#settings-btn');
     const closeSettingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#close-settings');
 
+    // Start audio meter - hoisted so both stream handler and tap-to-play can call it
+    const startAudioMeter = () => {
+        if (!remoteStream) return;
+        if (meterEl && remoteStream.getAudioTracks().length > 0) {
+            if (audioMeterHandle) {
+                audioMeterHandle.stop();
+            }
+            audioMeterHandle = createAudioLevelMeter(remoteStream, (level) => {
+                meterEl.style.width = `${level * 100}%`;
+            });
+        } else if (meterEl) {
+            console.warn('No audio tracks in received stream');
+        }
+    };
+
     // Handle tap-to-play for browsers that block autoplay
     tapToPlayEl.addEventListener('click', () => {
         videoEl.play()
             .then(() => {
                 tapToPlayEl.classList.add('hidden');
+                startAudioMeter();
             })
             .catch((e) => {
                 console.error('Manual play failed:', e);
@@ -310,25 +326,16 @@ export async function initParentStation(
             console.log('Received stream tracks:', incomingStream.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
             statusEl.textContent = 'Connected! Monitoring...';
             videoEl!.srcObject = incomingStream;
+
             videoEl!.play()
                 .then(() => {
                     tapToPlayEl.classList.add('hidden');
+                    startAudioMeter();
                 })
                 .catch((e) => {
                     console.error('Auto-play blocked:', e);
                     tapToPlayEl.classList.remove('hidden');
                 });
-
-            if (meterEl && incomingStream.getAudioTracks().length > 0) {
-                if (audioMeterHandle) {
-                    audioMeterHandle.stop();
-                }
-                audioMeterHandle = createAudioLevelMeter(incomingStream, (level) => {
-                    meterEl.style.width = `${level * 100}%`;
-                });
-            } else if (meterEl) {
-                console.warn('No audio tracks in received stream');
-            }
         });
 
         activeCall.on('close', () => {

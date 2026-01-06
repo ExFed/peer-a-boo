@@ -115,20 +115,23 @@ export function createAudioLevelMeter(
     const update = () => {
         analyser.getByteTimeDomainData(dataArray);
 
-        // Calculate RMS level
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
             const value = (dataArray[i] - 128) / 128;
             sum += value * value;
         }
         const rms = Math.sqrt(sum / dataArray.length);
-        const level = Math.min(1, rms * 3); // Scale up for visibility
+        const level = Math.min(1, rms * 3);
 
         onLevel(level);
         animationId = requestAnimationFrame(update);
     };
 
-    update();
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().then(update);
+    } else {
+        update();
+    }
 
     return {
         stop: () => {
