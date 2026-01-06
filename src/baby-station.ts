@@ -3,10 +3,19 @@ import type { MediaConnection } from 'peerjs';
 import QRCode from 'qrcode';
 import { requestWakeLock, stopMediaStream, enumerateMediaDevices, querySelectorOrThrow } from './utils';
 
+/**
+ * Handle for cleaning up the baby station's resources.
+ */
 export interface CleanupHandle {
     cleanup: () => void;
 }
 
+/**
+ * Initializes the baby station, which streams camera and microphone to a parent station.
+ * @param container - The HTML element to render the baby station UI into
+ * @param roomId - The ID of the room to host
+ * @returns A promise that resolves to a cleanup handle
+ */
 export async function initBabyStation(
     container: HTMLElement,
     roomId: string

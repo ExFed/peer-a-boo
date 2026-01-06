@@ -3,6 +3,9 @@ import { generateRandomId } from './dictionary';
 import type { CleanupHandle } from './baby-station';
 import { querySelectorOrThrow } from './utils';
 
+/**
+ * Supported station roles for the application.
+ */
 type StationKind = 'baby' | 'parent';
 
 const appEl = document.querySelector<HTMLDivElement>('#app');

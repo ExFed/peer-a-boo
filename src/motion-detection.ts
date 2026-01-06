@@ -1,22 +1,44 @@
+/**
+ * Configuration for the motion detector.
+ */
 export interface MotionDetectorConfig {
+    /** Width of the downsampled video frame for analysis */
     sampleWidth: number;
+    /** Height of the downsampled video frame for analysis */
     sampleHeight: number;
+    /** Number of frames to skip between analyses */
     frameSkip: number;
+    /** Number of initial frames to ignore to allow camera to stabilize */
     stabilizationFrames: number;
+    /** Minimum time between motion alerts in milliseconds */
     alertCooldownMs: number;
 }
 
+/**
+ * Handle for controlling the motion detector.
+ */
 export interface MotionDetectorHandle {
+    /** Starts the motion detection loop */
     start: () => void;
+    /** Stops the motion detection loop */
     stop: () => void;
+    /** Sets the motion sensitivity threshold (lower is more sensitive) */
     setThreshold: (threshold: number) => void;
+    /** Gets the current motion sensitivity threshold */
     getThreshold: () => number;
+    /** Pauses or resumes motion alerts without stopping the loop */
     setPaused: (paused: boolean) => void;
+    /** Checks if motion alerts are currently paused */
     isPaused: () => boolean;
 }
 
+/**
+ * Callbacks for motion detection events.
+ */
 export interface MotionCallbacks {
+    /** Called when a new motion level is calculated (0-1) */
     onMotionLevel: (level: number) => void;
+    /** Called when motion exceeds the threshold and cooldown has passed */
     onMotionAlert: () => void;
 }
 
@@ -28,6 +50,13 @@ const DEFAULT_CONFIG: MotionDetectorConfig = {
     alertCooldownMs: 2000,
 };
 
+/**
+ * Creates a motion detector that analyzes a video element using frame differencing.
+ * @param video - The HTML video element to analyze
+ * @param callbacks - Event callbacks for motion level updates and alerts
+ * @param config - Optional configuration to override defaults
+ * @returns Handle for controlling the motion detector
+ */
 export function createMotionDetector(
     video: HTMLVideoElement,
     callbacks: MotionCallbacks,

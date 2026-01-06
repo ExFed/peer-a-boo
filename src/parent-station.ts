@@ -5,10 +5,19 @@ import type { AudioLevelMeterHandle, DecayingMeterHandle } from './utils';
 import { createMotionDetector } from './motion-detection';
 import type { MotionDetectorHandle } from './motion-detection';
 
+/**
+ * Handle for cleaning up the parent station's resources.
+ */
 export interface CleanupHandle {
     cleanup: () => void;
 }
 
+/**
+ * Initializes the parent station, which connects to a baby station to receive a stream.
+ * @param container - The HTML element to render the parent station UI into
+ * @param roomId - The ID of the room to join
+ * @returns A promise that resolves to a cleanup handle
+ */
 export async function initParentStation(
     container: HTMLElement,
     roomId: string
@@ -118,13 +127,13 @@ export async function initParentStation(
                 </div>
             </div>
         </div>
-        
+
         <div id="settings-drawer" class="settings-drawer">
             <div class="drawer-header">
                 <button id="close-settings" class="close-btn">×</button>
                 <h3 class="drawer-title">Monitor Settings</h3>
             </div>
-            
+
              <div style="margin-bottom: 2rem;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                     <label for="motion-sensitivity" style="font-weight: 500;">Motion Sensitivity</label>
@@ -141,7 +150,7 @@ export async function initParentStation(
                 <input type="checkbox" id="pause-motion" style="width: 20px; height: 20px;" />
                 <span style="font-size: 1rem; font-weight: 500;">Pause Motion Alerts</span>
             </label>
-            
+
             <div style="margin-top: 2rem; font-size: 0.8rem; color: #666; text-align: center;">
                 Room ID: <span style="font-family: monospace;">${roomId}</span>
             </div>
@@ -151,7 +160,7 @@ export async function initParentStation(
 
     const statusTextEl = querySelectorOrThrow<HTMLElement>(container, '#status-text');
     const statusDotEl = querySelectorOrThrow<HTMLElement>(container, '#status-badge .status-dot');
-    
+
     const updateStatus = (text: string, active: boolean) => {
         statusTextEl.textContent = text;
         if (active) statusDotEl.classList.add('active');
@@ -224,7 +233,7 @@ export async function initParentStation(
     function showMotionAlert() {
         motionToastEl.classList.add('visible');
         videoContainer.classList.add('video-alert');
-        
+
         if (motionAlertTimeout) {
             clearTimeout(motionAlertTimeout);
         }

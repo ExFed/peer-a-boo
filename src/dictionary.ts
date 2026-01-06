@@ -1,3 +1,6 @@
+/**
+ * List of words used for generating random room IDs.
+ */
 export const words = [
     "apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew",
     "kiwi", "lemon", "mango", "nectarine", "orange", "papaya", "quince", "raspberry",
@@ -17,6 +20,10 @@ export const words = [
     "music", "song", "dance", "art", "paint", "draw", "sketch", "color"
 ];
 
+/**
+ * Generates a random room ID in the format 'WordWordWord1234'.
+ * @returns A randomly generated room ID
+ */
 export function generateRandomId(): string {
     const getRandomWord = () => {
         const word = words[Math.floor(Math.random() * words.length)];

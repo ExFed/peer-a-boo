@@ -1,7 +1,17 @@
+/**
+ * Handle returned by requestWakeLock for releasing the wake lock.
+ */
 export interface WakeLockHandle {
     release: () => Promise<void>;
 }
 
+/**
+ * Queries for an element and throws an error if not found.
+ * @param parent - The parent node to search within
+ * @param selector - The CSS selector to search for
+ * @returns The found element
+ * @throws Error if the element is not found
+ */
 export function querySelectorOrThrow<E extends Element = Element>(
     parent: ParentNode,
     selector: string,
@@ -13,6 +23,11 @@ export function querySelectorOrThrow<E extends Element = Element>(
     return element;
 }
 
+/**
+ * Requests a screen wake lock to prevent the device from sleeping.
+ * Automatically re-acquires the lock when the page becomes visible again.
+ * @returns A handle to release the wake lock, or null if the API is not supported or the request fails
+ */
 export async function requestWakeLock(): Promise<WakeLockHandle | null> {
     if (!('wakeLock' in navigator)) {
         console.warn('Wake Lock API not supported.');
@@ -54,24 +69,36 @@ export async function requestWakeLock(): Promise<WakeLockHandle | null> {
     }
 }
 
-// Helper to stop all tracks in a media stream
+/**
+ * Stops all tracks in a media stream.
+ * @param stream - The media stream to stop
+ */
 export function stopMediaStream(stream: MediaStream | null): void {
     if (stream) {
         stream.getTracks().forEach(track => track.stop());
     }
 }
 
+/**
+ * Information about a media device.
+ */
 export interface MediaDeviceInfo {
     deviceId: string;
     label: string;
 }
 
+/**
+ * Collection of available cameras and microphones.
+ */
 export interface MediaDevices {
     cameras: MediaDeviceInfo[];
     microphones: MediaDeviceInfo[];
 }
 
-// Enumerate available media devices (cameras and microphones)
+/**
+ * Enumerates available media devices (cameras and microphones).
+ * @returns A promise that resolves to an object containing lists of cameras and microphones
+ */
 export async function enumerateMediaDevices(): Promise<MediaDevices> {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cameras: MediaDeviceInfo[] = [];
@@ -94,21 +121,39 @@ export async function enumerateMediaDevices(): Promise<MediaDevices> {
     return { cameras, microphones };
 }
 
+/**
+ * Handle for stopping an audio level meter.
+ */
 export interface AudioLevelMeterHandle {
     stop: () => void;
 }
 
+/**
+ * Handle for updating and stopping a decaying meter.
+ */
 export interface DecayingMeterHandle {
     update: (level: number) => void;
     stop: () => void;
 }
 
+/**
+ * Configuration options for a decaying meter.
+ */
 export interface DecayingMeterOptions {
+    /** Rate at which the meter decays in milliseconds */
     decayRate?: number;
+    /** Level above which the 'warning' class is added (0-1) */
     warningThreshold?: number;
+    /** Level above which the 'danger' class is added (0-1) */
     dangerThreshold?: number;
 }
 
+/**
+ * Creates a decaying meter that tracks peak values and smoothly decays over time.
+ * @param meterEl - The HTML element to update with meter width and color classes
+ * @param options - Configuration for decay rate and color thresholds
+ * @returns Handle with update() to set new levels and stop() to cleanup
+ */
 export function createDecayingMeter(
     meterEl: HTMLElement,
     options: DecayingMeterOptions = {}
@@ -156,7 +201,12 @@ export function createDecayingMeter(
     };
 }
 
-// Create an audio level meter from a media stream
+/**
+ * Creates an audio level meter from a media stream.
+ * @param stream - The media stream to analyze
+ * @param onLevel - Callback function that receives the current audio level (0-1)
+ * @returns Handle for stopping the meter
+ */
 export function createAudioLevelMeter(
     stream: MediaStream,
     onLevel: (level: number) => void
