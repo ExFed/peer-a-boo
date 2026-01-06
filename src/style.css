@@ -423,6 +423,52 @@ video {
     margin-bottom: 1.5rem;
 }
 
+.settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+.settings-group .settings-section {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.pause-toggle {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.pause-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 640px) {
+    .settings-group {
+        flex-direction: row-reverse;
+        align-items: flex-end;
+        gap: var(--spacing-lg);
+    }
+
+    .pause-toggle {
+        margin-bottom: 2rem;
+        background: transparent;
+        padding: 0;
+    }
+    
+    .pause-toggle:hover {
+        background: transparent;
+        color: var(--color-primary);
+    }
+}
+
 select {
     width: 100%;
     background: rgba(0, 0, 0, 0.3);

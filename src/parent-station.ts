@@ -142,39 +142,43 @@ export async function initParentStation(
                 <h3 class="drawer-title">Monitor Settings</h3>
             </div>
 
-            <div class="settings-section">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <label for="squirming-sensitivity" style="font-weight: 500;">Squirming Sensitivity</label>
-                    <span id="squirming-sensitivity-value" style="color: var(--color-primary);">50</span>
+            <div class="settings-group">
+                <div class="settings-section">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <label for="squirming-sensitivity" style="font-weight: 500;">Squirming Sensitivity</label>
+                        <span id="squirming-sensitivity-value" style="color: var(--color-primary);">50</span>
+                    </div>
+                    <input type="range" id="squirming-sensitivity" min="1" max="100" value="50" />
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
+                        <span>Low</span>
+                        <span>High</span>
+                    </div>
                 </div>
-                <input type="range" id="squirming-sensitivity" min="1" max="100" value="50" />
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
-                    <span>Low</span>
-                    <span>High</span>
-                </div>
+
+                <label class="pause-toggle">
+                    <input type="checkbox" id="pause-squirming" style="width: 20px; height: 20px;" />
+                    <span style="font-size: 1rem; font-weight: 500;">Pause Squirming Alerts</span>
+                </label>
             </div>
 
-            <label class="pause-toggle" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; margin-bottom: 1.5rem;">
-                <input type="checkbox" id="pause-squirming" style="width: 20px; height: 20px;" />
-                <span style="font-size: 1rem; font-weight: 500;">Pause Squirming Alerts</span>
-            </label>
+            <div class="settings-group">
+                <div class="settings-section">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <label for="crying-sensitivity" style="font-weight: 500;">Crying Sensitivity</label>
+                        <span id="crying-sensitivity-value" style="color: var(--color-primary);">50</span>
+                    </div>
+                    <input type="range" id="crying-sensitivity" min="1" max="100" value="50" />
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
+                        <span>Low</span>
+                        <span>High</span>
+                    </div>
+                </div>
 
-            <div class="settings-section">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <label for="crying-sensitivity" style="font-weight: 500;">Crying Sensitivity</label>
-                    <span id="crying-sensitivity-value" style="color: var(--color-primary);">50</span>
-                </div>
-                <input type="range" id="crying-sensitivity" min="1" max="100" value="50" />
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
-                    <span>Low</span>
-                    <span>High</span>
-                </div>
+                <label class="pause-toggle">
+                    <input type="checkbox" id="pause-crying" style="width: 20px; height: 20px;" />
+                    <span style="font-size: 1rem; font-weight: 500;">Pause Crying Alerts</span>
+                </label>
             </div>
-
-            <label class="pause-toggle" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer;">
-                <input type="checkbox" id="pause-crying" style="width: 20px; height: 20px;" />
-                <span style="font-size: 1rem; font-weight: 500;">Pause Crying Alerts</span>
-            </label>
 
             <div style="margin-top: 2rem; font-size: 0.8rem; color: #666; text-align: center;">
                 Room ID: <span style="font-family: monospace;">${roomId}</span>
