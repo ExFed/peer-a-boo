@@ -1,7 +1,7 @@
 import { Peer } from 'peerjs';
 import type { MediaConnection } from 'peerjs';
-import { requestWakeLock, stopMediaStream, createAudioLevelMeter, querySelectorOrThrow } from './utils';
-import type { AudioLevelMeterHandle } from './utils';
+import { requestWakeLock, stopMediaStream, createAudioLevelMeter, createDecayingMeter, querySelectorOrThrow } from './utils';
+import type { AudioLevelMeterHandle, DecayingMeterHandle } from './utils';
 import { createMotionDetector } from './motion-detection';
 import type { MotionDetectorHandle } from './motion-detection';
 
@@ -20,6 +20,8 @@ export async function initParentStation(
     let dummyAudioCtx: AudioContext | null = null;
     let remoteStream: MediaStream | null = null;
     let audioMeterHandle: AudioLevelMeterHandle | null = null;
+    let audioDecayHandle: DecayingMeterHandle | null = null;
+    let motionDecayHandle: DecayingMeterHandle | null = null;
     let motionDetectorHandle: MotionDetectorHandle | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     let motionAlertTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -43,6 +45,14 @@ export async function initParentStation(
         if (audioMeterHandle) {
             audioMeterHandle.stop();
             audioMeterHandle = null;
+        }
+        if (audioDecayHandle) {
+            audioDecayHandle.stop();
+            audioDecayHandle = null;
+        }
+        if (motionDecayHandle) {
+            motionDecayHandle.stop();
+            motionDecayHandle = null;
         }
         if (activeCall) {
             activeCall.close();
@@ -175,8 +185,16 @@ export async function initParentStation(
             if (audioMeterHandle) {
                 audioMeterHandle.stop();
             }
+            if (audioDecayHandle) {
+                audioDecayHandle.stop();
+            }
+            audioDecayHandle = createDecayingMeter(meterEl, {
+                decayRate: 10,
+                warningThreshold: 0.5,
+                dangerThreshold: 0.75,
+            });
             audioMeterHandle = createAudioLevelMeter(remoteStream, (level) => {
-                meterEl.style.width = `${level * 100}%`;
+                audioDecayHandle?.update(level);
             });
         } else if (meterEl) {
             console.warn('No audio tracks in received stream');
@@ -220,10 +238,17 @@ export async function initParentStation(
         if (motionDetectorHandle) {
             motionDetectorHandle.stop();
         }
+        if (motionDecayHandle) {
+            motionDecayHandle.stop();
+        }
+
+        motionDecayHandle = createDecayingMeter(motionMeterEl, {
+            decayRate: 10,
+        });
 
         motionDetectorHandle = createMotionDetector(videoEl, {
             onMotionLevel: (level) => {
-                motionMeterEl.style.width = `${level * 100}%`;
+                motionDecayHandle?.update(level);
             },
             onMotionAlert: showMotionAlert,
         });

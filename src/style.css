@@ -371,6 +371,8 @@ video {
 }
 
 .meter-fill.audio { background: var(--color-success); }
+.meter-fill.audio.warning { background: var(--color-warning); }
+.meter-fill.audio.danger { background: var(--color-danger); }
 .meter-fill.motion { background: var(--color-primary); }
 
 .qr-panel {

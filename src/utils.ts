@@ -98,6 +98,64 @@ export interface AudioLevelMeterHandle {
     stop: () => void;
 }
 
+export interface DecayingMeterHandle {
+    update: (level: number) => void;
+    stop: () => void;
+}
+
+export interface DecayingMeterOptions {
+    decayRate?: number;
+    warningThreshold?: number;
+    dangerThreshold?: number;
+}
+
+export function createDecayingMeter(
+    meterEl: HTMLElement,
+    options: DecayingMeterOptions = {}
+): DecayingMeterHandle {
+    const {
+        decayRate = 100,
+        warningThreshold = 0.5,
+        dangerThreshold = 0.75,
+    } = options;
+
+    let currentLevel = 0;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const applyLevel = () => {
+        meterEl.style.width = `${currentLevel * 100}%`;
+
+        meterEl.classList.remove('warning', 'danger');
+        if (currentLevel > dangerThreshold) {
+            meterEl.classList.add('danger');
+        } else if (currentLevel > warningThreshold) {
+            meterEl.classList.add('warning');
+        }
+    };
+
+    intervalId = setInterval(() => {
+        if (currentLevel > 0) {
+            currentLevel = Math.max(0, currentLevel - 0.1);
+            applyLevel();
+        }
+    }, decayRate);
+
+    return {
+        update: (level: number) => {
+            if (level > currentLevel) {
+                currentLevel = level;
+                applyLevel();
+            }
+        },
+        stop: () => {
+            if (intervalId !== null) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        }
+    };
+}
+
 // Create an audio level meter from a media stream
 export function createAudioLevelMeter(
     stream: MediaStream,
