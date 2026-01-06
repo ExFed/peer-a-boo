@@ -142,6 +142,49 @@ export interface AudioLevelMeterOptions {
     alertThreshold?: number;
     /** Cooldown period between alerts in milliseconds (default 2000) */
     alertCooldownMs?: number;
+    /** Whether to apply A-weighting to emphasize baby cry frequencies (default true) */
+    useAWeighting?: boolean;
+}
+
+/**
+ * Attempt to compute A-weighting gain for a given frequency.
+ * A-weighting emphasizes frequencies where human hearing is most sensitive (1-6kHz)
+ * and attenuates low frequencies (rumble) and very high frequencies.
+ * @param f - Frequency in Hz
+ * @returns Linear gain multiplier
+ */
+function computeAWeightGain(f: number): number {
+    if (f < 10) return 0;
+    
+    const f2 = f * f;
+    const f4 = f2 * f2;
+    
+    const num = 12194 * 12194 * f4;
+    const denom = (f2 + 20.6 * 20.6) 
+        * Math.sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9)) 
+        * (f2 + 12194 * 12194);
+    
+    const aWeightDb = 20 * Math.log10(num / denom) + 2.0;
+    return Math.pow(10, aWeightDb / 20);
+}
+
+/**
+ * Precompute A-weighting gains for FFT frequency bins.
+ * @param binCount - Number of frequency bins
+ * @param sampleRate - Audio sample rate in Hz
+ * @param fftSize - FFT size used by analyser
+ * @returns Array of linear gain values for each bin
+ */
+function precomputeAWeights(binCount: number, sampleRate: number, fftSize: number): Float32Array {
+    const weights = new Float32Array(binCount);
+    const binWidth = sampleRate / fftSize;
+    
+    for (let i = 0; i < binCount; i++) {
+        const freq = (i + 0.5) * binWidth;
+        weights[i] = computeAWeightGain(freq);
+    }
+    
+    return weights;
 }
 
 /**
@@ -254,6 +297,7 @@ export function createAudioLevelMeter(
         onLevel,
         onAlert,
         alertCooldownMs = 2000,
+        useAWeighting = true,
     } = opts;
     
     let alertThreshold = opts.alertThreshold ?? 0.5;
@@ -262,23 +306,34 @@ export function createAudioLevelMeter(
 
     const audioContext = new AudioContext();
     const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.3;
     const source = audioContext.createMediaStreamSource(stream);
     source.connect(analyser);
 
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    const binCount = analyser.frequencyBinCount;
+    const frequencyData = new Uint8Array(binCount);
+    const aWeights = useAWeighting 
+        ? precomputeAWeights(binCount, audioContext.sampleRate, analyser.fftSize)
+        : null;
+    
     let animationId: number | null = null;
 
     const update = () => {
-        analyser.getByteTimeDomainData(dataArray);
+        analyser.getByteFrequencyData(frequencyData);
 
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            const value = (dataArray[i] - 128) / 128;
-            sum += value * value;
+        let weightedSum = 0;
+        let weightTotal = 0;
+        
+        for (let i = 0; i < binCount; i++) {
+            const magnitude = frequencyData[i] / 255;
+            const weight = aWeights ? aWeights[i] : 1;
+            weightedSum += magnitude * magnitude * weight;
+            weightTotal += weight;
         }
-        const rms = Math.sqrt(sum / dataArray.length);
-        const level = Math.min(1, rms * 3);
+        
+        const rms = Math.sqrt(weightedSum / (weightTotal || 1));
+        const level = Math.min(1, rms * 2.5);
 
         onLevel?.(level);
         

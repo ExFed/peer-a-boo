@@ -89,7 +89,6 @@ export function createMotionDetector(
 
         for (let i = 0; i < pixelCount; i++) {
             const offset = i * 4;
-            // Luminance: 0.299*R + 0.587*G + 0.114*B
             gray[i] = (
                 0.299 * data[offset] +
                 0.587 * data[offset + 1] +
@@ -100,6 +99,34 @@ export function createMotionDetector(
         return gray;
     }
 
+    /**
+     * Applies a Laplacian high-pass filter to emphasize edges/high-frequency detail.
+     * This isolates small-scale motion (squirming) from large-scale motion (camera shake).
+     * Laplacian kernel: [0, -1, 0, -1, 4, -1, 0, -1, 0]
+     */
+    function applyLaplacian(
+        data: Float32Array, 
+        width: number, 
+        height: number
+    ): Float32Array {
+        const result = new Float32Array(data.length);
+        
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const laplacian = 
+                    4 * data[idx] -
+                    data[idx - 1] -
+                    data[idx + 1] -
+                    data[idx - width] -
+                    data[idx + width];
+                result[idx] = Math.abs(laplacian);
+            }
+        }
+        
+        return result;
+    }
+
     function calculateMotionScore(
         current: Float32Array,
         previous: Float32Array
@@ -108,12 +135,19 @@ export function createMotionDetector(
             return 0;
         }
 
-        let totalDiff = 0;
+        const diff = new Float32Array(current.length);
         for (let i = 0; i < current.length; i++) {
-            totalDiff += Math.abs(current[i] - previous[i]);
+            diff[i] = Math.abs(current[i] - previous[i]);
+        }
+        
+        const highFreqMotion = applyLaplacian(diff, cfg.sampleWidth, cfg.sampleHeight);
+        
+        let totalHighFreq = 0;
+        for (let i = 0; i < highFreqMotion.length; i++) {
+            totalHighFreq += highFreqMotion[i];
         }
 
-        return totalDiff / current.length;
+        return totalHighFreq / highFreqMotion.length;
     }
 
     function processFrame() {

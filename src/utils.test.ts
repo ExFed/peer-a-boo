@@ -141,12 +141,16 @@ describe('createAudioLevelMeter', () => {
             disconnect,
         };
         const analyser = {
-            fftSize: 0,
-            frequencyBinCount: 8,
-            getByteTimeDomainData: (array: Uint8Array) => array.fill(128),
+            fftSize: 512,
+            frequencyBinCount: 256,
+            smoothingTimeConstant: 0,
+            getByteFrequencyData: (array: Uint8Array) => array.fill(128),
         };
 
         class FakeAudioContext {
+            sampleRate = 44100;
+            state = 'running';
+
             createAnalyser() {
                 return analyser;
             }
@@ -176,7 +180,9 @@ describe('createAudioLevelMeter', () => {
         const handle = createAudioLevelMeter(stream, onLevel);
 
         expect(onLevel).toHaveBeenCalledTimes(1);
-        expect(onLevel.mock.calls[0][0]).toBe(0);
+        // With A-weighting and frequencyData filled with 128, level should be > 0
+        expect(onLevel.mock.calls[0][0]).toBeGreaterThanOrEqual(0);
+        expect(onLevel.mock.calls[0][0]).toBeLessThanOrEqual(1);
         expect(source.connect).toHaveBeenCalledWith(analyser);
 
         handle.stop();
