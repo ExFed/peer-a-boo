@@ -11,14 +11,24 @@ if (!appEl) {
 }
 
 appEl.innerHTML = `
-  <div>
-    <h1>Peer-a-Boo 👻</h1>
-    <div class="card">
-      <div style="margin-bottom: 1rem;">
-        <input type="text" id="peer-id-input" style="padding: 0.6em; font-size: 1em; width: 250px; text-align: center;" />
+  <div class="app-shell">
+    <div id="landing-view" class="landing-container">
+      <h1 class="landing-title">Peer-a-Boo 👻</h1>
+      
+      <div class="room-input-group">
+        <input type="text" id="peer-id-input" class="room-input" placeholder="Enter Room ID" spellcheck="false" />
       </div>
-      <button id="btn-baby" type="button">📹 Baby Station</button>
-      <button id="btn-parent" type="button">👀 Parent Station</button>
+
+      <div class="role-selection">
+        <button id="btn-baby" type="button" class="role-card">
+          <span class="role-icon">📹</span>
+          <span class="role-title">Baby Station</span>
+        </button>
+        <button id="btn-parent" type="button" class="role-card">
+          <span class="role-icon">👀</span>
+          <span class="role-title">Parent Station</span>
+        </button>
+      </div>
     </div>
     <div id="station-container"></div>
   </div>
@@ -30,7 +40,7 @@ const stationContainer = querySelectorOrThrow<HTMLDivElement>(document, '#statio
 const roomIdInput = querySelectorOrThrow<HTMLInputElement>(document, '#peer-id-input');
 
 let currentCleanup: CleanupHandle | null = null;
-const selectionParent = btnBaby?.parentElement;
+const selectionParent = querySelectorOrThrow<HTMLElement>(document, '#landing-view');
 
 function cleanupCurrentStation() {
     if (currentCleanup) {

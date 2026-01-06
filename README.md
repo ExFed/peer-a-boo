@@ -5,10 +5,13 @@ A web-based P2P baby monitor using WebRTC.
 ## Features
 
 - **Baby Station**: Streams video/audio from the device. Generates a QR code for
-  easy pairing.
-- **Parent Station**: Connects to the Baby Station to monitor.
+  easy pairing. Full-screen video preview with slide-up settings drawer.
+- **Parent Station**: Connects to the Baby Station to monitor. Features motion
+  detection with adjustable sensitivity and non-disruptive toast alerts.
 - **P2P**: Direct connection using PeerJS (no video server required).
 - **Wake Lock**: Prevents devices from sleeping while monitoring.
+- **Modern UI**: Dark theme, video-centric design, responsive layout for mobile
+  and desktop.
 
 ## How to Run Locally
 
@@ -63,16 +66,17 @@ device and accept the certificate warning when prompted.
 
 1. **Baby Station**:
     - Open the app on the device you want to leave with the baby (e.g., Laptop).
-    - Click "I am the Baby Station".
+    - Select "Baby Station" from the role cards.
     - Allow camera/microphone access.
-    - A QR code and Room identifier will appear.
+    - Tap the gear icon to open settings and view the QR code and Room ID.
 
 2. **Parent Station**:
     - Open the app on your monitoring device (e.g., Phone).
     - **Option A**: Scan the QR code from the Baby Station.
-    - **Option B**: Click "I am the Parent Station" and manually enter the Room
-      identifier displayed on the Baby Station.
-    - Click "Connect".
+    - **Option B**: Enter the Room ID on the landing page, then select "Parent
+      Station".
+    - The video stream will connect automatically. Use the gear icon to adjust
+      motion detection sensitivity or pause alerts.
 
 ## Deployment (Important for Mobile)
 

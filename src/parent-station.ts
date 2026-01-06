@@ -64,39 +64,190 @@ export async function initParentStation(
         console.log('Parent Station cleaned up');
     };
 
-    // Note that PeerJS keeps call connections open for 5s until giving up;
-    // setting minDelay to less than 5s causes retry logic to fail
-    const minDelay = 5000; // ms
-    const randomFactor = 0.5; // 50%
+    container.innerHTML = `
+    <div id="video-container" class="full-screen-video-container">
+        <video id="remote-video" autoplay playsinline></video>
+    </div>
+
+    <div class="ui-layer">
+        <div class="ui-header">
+             <div id="status-badge" class="status-badge">
+                <div class="status-dot"></div>
+                <span id="status-text">Connecting...</span>
+            </div>
+            <button id="settings-btn" class="btn-icon" aria-label="Settings">
+                ⚙️
+            </button>
+        </div>
+
+        <div id="motion-toast" class="toast">
+            Motion Detected!
+        </div>
+
+        <div class="control-bar">
+            <div class="control-row">
+                <span style="font-size: 1.2rem;">🔊</span>
+                <div class="meter-group">
+                    <div class="meter-track">
+                        <div id="audio-level-meter" class="meter-fill audio"></div>
+                    </div>
+                </div>
+            </div>
+             <div class="control-row">
+                <span style="font-size: 1.2rem;">🏃</span>
+                <div class="meter-group">
+                    <div class="meter-track">
+                        <div id="motion-level-meter" class="meter-fill motion"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="settings-drawer" class="settings-drawer">
+            <div class="drawer-header">
+                <h3 class="drawer-title">Monitor Settings</h3>
+                <button id="close-settings" class="close-btn">×</button>
+            </div>
+            
+             <div style="margin-bottom: 2rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <label for="motion-sensitivity" style="font-weight: 500;">Motion Sensitivity</label>
+                    <span id="sensitivity-value" style="color: var(--color-primary);">50</span>
+                </div>
+                <input type="range" id="motion-sensitivity" min="1" max="100" value="50" />
+                 <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
+                    <span>Low</span>
+                    <span>High</span>
+                </div>
+            </div>
+
+            <label class="pause-toggle" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer;">
+                <input type="checkbox" id="pause-motion" style="width: 20px; height: 20px;" />
+                <span style="font-size: 1rem; font-weight: 500;">Pause Motion Alerts</span>
+            </label>
+            
+            <div style="margin-top: 2rem; font-size: 0.8rem; color: #666; text-align: center;">
+                Room ID: <span style="font-family: monospace;">${roomId}</span>
+            </div>
+        </div>
+    </div>
+  `;
+
+    const statusTextEl = querySelectorOrThrow<HTMLElement>(container, '#status-text');
+    const statusDotEl = querySelectorOrThrow<HTMLElement>(container, '#status-badge .status-dot');
+    
+    const updateStatus = (text: string, active: boolean) => {
+        statusTextEl.textContent = text;
+        if (active) statusDotEl.classList.add('active');
+        else statusDotEl.classList.remove('active');
+    };
+
+    const statusEl = {
+        set textContent(value: string) {
+            updateStatus(value, value.includes('Connected') || value.includes('Monitoring'));
+        }
+    };
+
+    const videoContainer = querySelectorOrThrow<HTMLElement>(container, '#video-container');
+    const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#remote-video');
+    const meterEl = querySelectorOrThrow<HTMLElement>(container, '#audio-level-meter');
+    const motionMeterEl = querySelectorOrThrow<HTMLElement>(container, '#motion-level-meter');
+    const motionToastEl = querySelectorOrThrow<HTMLElement>(container, '#motion-toast');
+    const sensitivitySlider = querySelectorOrThrow<HTMLInputElement>(container, '#motion-sensitivity');
+    const sensitivityValue = querySelectorOrThrow<HTMLElement>(container, '#sensitivity-value');
+    const pauseCheckbox = querySelectorOrThrow<HTMLInputElement>(container, '#pause-motion');
+
+    const settingsDrawer = querySelectorOrThrow<HTMLElement>(container, '#settings-drawer');
+    const settingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#settings-btn');
+    const closeSettingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#close-settings');
+
+    settingsBtn.addEventListener('click', () => {
+        settingsDrawer.classList.add('open');
+    });
+
+    closeSettingsBtn.addEventListener('click', () => {
+        settingsDrawer.classList.remove('open');
+    });
+
+    function showMotionAlert() {
+        motionToastEl.classList.add('visible');
+        videoContainer.classList.add('video-alert');
+        
+        if (motionAlertTimeout) {
+            clearTimeout(motionAlertTimeout);
+        }
+        motionAlertTimeout = setTimeout(() => {
+            motionToastEl.classList.remove('visible');
+            videoContainer.classList.remove('video-alert');
+        }, 2000);
+    }
+
+    function setupMotionDetection() {
+        if (motionDetectorHandle) {
+            motionDetectorHandle.stop();
+        }
+
+        motionDetectorHandle = createMotionDetector(videoEl, {
+            onMotionLevel: (level) => {
+                motionMeterEl.style.width = `${level * 100}%`;
+            },
+            onMotionAlert: showMotionAlert,
+        });
+
+        const sliderValue = parseInt(sensitivitySlider.value, 10);
+        const threshold = (101 - sliderValue) / 1000;
+        motionDetectorHandle.setThreshold(threshold);
+        motionDetectorHandle.start();
+    }
+
+    sensitivitySlider.addEventListener('input', () => {
+        const value = parseInt(sensitivitySlider.value, 10);
+        sensitivityValue.textContent = String(value);
+        if (motionDetectorHandle) {
+            const threshold = (101 - value) / 1000;
+            motionDetectorHandle.setThreshold(threshold);
+        }
+    });
+
+    pauseCheckbox.addEventListener('change', () => {
+        if (motionDetectorHandle) {
+            motionDetectorHandle.setPaused(pauseCheckbox.checked);
+        }
+    });
+
+    videoEl.addEventListener('play', () => {
+        if (!motionDetectorHandle) {
+            setupMotionDetection();
+        }
+    });
+
+    const minDelay = 5000;
+    const randomFactor = 0.5;
 
     function getNextDelay(): number {
         return minDelay + Math.random() * randomFactor * minDelay;
     }
 
     function createDummyStream() {
-        // Clean up existing dummy stream resources
         if (dummyAudioCtx) {
             dummyAudioCtx.close();
         }
         stopMediaStream(dummyStream);
 
-        // Create a dummy stream with both video and audio tracks
         const canvas = document.createElement('canvas');
         canvas.width = 1;
         canvas.height = 1;
 
-        // Create silent audio track using AudioContext
         const audioCtx = new AudioContext();
         dummyAudioCtx = audioCtx;
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-        gainNode.gain.value = 0; // Silent
+        gainNode.gain.value = 0;
         oscillator.connect(gainNode);
         const dest = audioCtx.createMediaStreamDestination();
         gainNode.connect(dest);
         oscillator.start();
 
-        // Combine video and audio into one stream
         dummyStream = new MediaStream([
             ...canvas.captureStream().getVideoTracks(),
             ...dest.stream.getAudioTracks()
@@ -113,26 +264,24 @@ export async function initParentStation(
             clearTimeout(retryTimeout);
         }
         const delay = getNextDelay();
-        statusEl!.textContent = `Connecting to server... Retry in ${Math.round(delay / 1000)}s`;
+        statusEl.textContent = `Connecting to server... Retry in ${Math.round(delay / 1000)}s`;
         retryTimeout = setTimeout(attemptCall, delay);
     }
 
     function attemptCall() {
         if (!peer || peer.destroyed) {
-            // Peer was destroyed, recreate it
             initPeer();
             return;
         }
 
         if (!peer.open) {
-            // Peer not connected to server yet, wait and retry
             scheduleRetry();
             return;
         }
 
         console.log(`Connection open: ${peer}`);
 
-        statusEl!.textContent = `Calling Baby Station...`;
+        statusEl.textContent = `Calling Baby Station...`;
 
         const stream = createDummyStream();
         activeCall = peer.call(roomId, stream);
@@ -141,11 +290,10 @@ export async function initParentStation(
             isConnected = true;
             remoteStream = incomingStream;
             console.log('Received stream tracks:', incomingStream.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
-            statusEl!.textContent = 'Connected! Monitoring...';
+            statusEl.textContent = 'Connected! Monitoring...';
             videoEl!.srcObject = incomingStream;
             videoEl!.play().catch((e) => console.error('Auto-play failed', e));
 
-            // Set up audio level meter if stream has audio tracks
             if (meterEl && incomingStream.getAudioTracks().length > 0) {
                 if (audioMeterHandle) {
                     audioMeterHandle.stop();
@@ -191,100 +339,11 @@ export async function initParentStation(
 
         peer.on('error', (err) => {
             console.error('Peer error:', err);
-            statusEl!.textContent = `Peer error: ${err.type}. Retrying...`;
+            statusEl.textContent = `Peer error: ${err.type}. Retrying...`;
             scheduleRetry();
         });
     }
 
-    container.innerHTML = `
-    <h2>Parent Station ${roomId}</h2>
-    <div id="status">...</div>
-    <div id="motion-alert" class="motion-alert hidden">Motion Detected!</div>
-    <div style="margin-top: 20px; position: relative;">
-      <video id="remote-video" autoplay playsinline controls style="max-width: 100%; border: 2px solid #646cff;"></video>
-    </div>
-    <div class="audio-level-container">
-      <label>Audio Level:</label>
-      <div class="audio-level-track">
-        <div id="audio-level-meter" class="audio-level-meter"></div>
-      </div>
-    </div>
-    <div class="motion-level-container">
-      <label>Motion Level:</label>
-      <div class="motion-level-track">
-        <div id="motion-level-meter" class="motion-level-meter"></div>
-      </div>
-    </div>
-    <div class="motion-controls">
-      <label for="motion-sensitivity">Sensitivity:</label>
-      <input type="range" id="motion-sensitivity" min="1" max="100" value="50" />
-      <span id="sensitivity-value">50</span>
-      <label class="pause-toggle">
-        <input type="checkbox" id="pause-motion" />
-        Pause Detection
-      </label>
-    </div>
-  `;
-
-    const statusEl = querySelectorOrThrow<HTMLElement>(container, '#status');
-    const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#remote-video');
-    const meterEl = querySelectorOrThrow<HTMLElement>(container, '#audio-level-meter');
-    const motionMeterEl = querySelectorOrThrow<HTMLElement>(container, '#motion-level-meter');
-    const motionAlertEl = querySelectorOrThrow<HTMLElement>(container, '#motion-alert');
-    const sensitivitySlider = querySelectorOrThrow<HTMLInputElement>(container, '#motion-sensitivity');
-    const sensitivityValue = querySelectorOrThrow<HTMLElement>(container, '#sensitivity-value');
-    const pauseCheckbox = querySelectorOrThrow<HTMLInputElement>(container, '#pause-motion');
-
-    function showMotionAlert() {
-        motionAlertEl.classList.remove('hidden');
-        if (motionAlertTimeout) {
-            clearTimeout(motionAlertTimeout);
-        }
-        motionAlertTimeout = setTimeout(() => {
-            motionAlertEl.classList.add('hidden');
-        }, 2000);
-    }
-
-    function setupMotionDetection() {
-        if (motionDetectorHandle) {
-            motionDetectorHandle.stop();
-        }
-
-        motionDetectorHandle = createMotionDetector(videoEl, {
-            onMotionLevel: (level) => {
-                motionMeterEl.style.width = `${level * 100}%`;
-            },
-            onMotionAlert: showMotionAlert,
-        });
-
-        const sliderValue = parseInt(sensitivitySlider.value, 10);
-        const threshold = (101 - sliderValue) / 1000;
-        motionDetectorHandle.setThreshold(threshold);
-        motionDetectorHandle.start();
-    }
-
-    sensitivitySlider.addEventListener('input', () => {
-        const value = parseInt(sensitivitySlider.value, 10);
-        sensitivityValue.textContent = String(value);
-        if (motionDetectorHandle) {
-            const threshold = (101 - value) / 1000;
-            motionDetectorHandle.setThreshold(threshold);
-        }
-    });
-
-    pauseCheckbox.addEventListener('change', () => {
-        if (motionDetectorHandle) {
-            motionDetectorHandle.setPaused(pauseCheckbox.checked);
-        }
-    });
-
-    videoEl.addEventListener('play', () => {
-        if (!motionDetectorHandle) {
-            setupMotionDetection();
-        }
-    });
-
-    // Start the connection process
     initPeer();
 
     return { cleanup };

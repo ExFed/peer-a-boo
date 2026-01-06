@@ -39,6 +39,7 @@ export default defineConfig(({ command }) => {
         server: https ? { https } : undefined,
         test: {
             environment: 'jsdom',
+            exclude: ['**/node_modules/**', '**/tests/**'],
         },
     };
 });

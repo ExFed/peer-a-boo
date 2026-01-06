@@ -37,47 +37,79 @@ export async function initBabyStation(
     };
 
     container.innerHTML = `
-    <h2>Baby Station ${roomId}</h2>
-    <div id="status">...</div>
-    <details id="device-selection" class="device-selection">
-      <div class="device-select-group">
-        <label for="camera-select">Camera:</label>
-        <select id="camera-select"></select>
-      </div>
-      <div class="device-select-group">
-        <label for="microphone-select">Microphone:</label>
-        <select id="microphone-select"></select>
-      </div>
-    </details>
-    <div id="id-display" class="hidden">
-        <details id="qr-section" open>
-            <summary>Connection QR Code</summary>
-            <p>Scan this code or enter ID on Parent device:</p>
-            <canvas id="qr-code"></canvas>
-            <br>
-            <h3 id="peer-id" style="font-family: monospace; background: #333; padding: 10px; border-radius: 4px; display: inline-block;"></h3>
-        </details>
+    <div class="full-screen-video-container">
+        <video id="local-video" autoplay muted playsinline></video>
     </div>
-    <div style="margin-top: 20px;">
-      <video id="local-video" autoplay muted playsinline style="max-width: 100%; border: 2px solid #646cff;"></video>
+    
+    <div class="ui-layer">
+        <div class="ui-header">
+            <div id="status-badge" class="status-badge">
+                <div class="status-dot"></div>
+                <span id="status-text">Initializing...</span>
+            </div>
+            <button id="settings-btn" class="btn-icon" aria-label="Settings">
+                ⚙️
+            </button>
+        </div>
+        
+        <div id="settings-drawer" class="settings-drawer">
+            <div class="drawer-header">
+                <h3 class="drawer-title">Baby Station Settings</h3>
+                <button id="close-settings" class="close-btn">×</button>
+            </div>
+            
+            <div class="device-selection">
+                <div class="device-select-group">
+                    <label for="camera-select">Camera</label>
+                    <select id="camera-select"></select>
+                </div>
+                <div class="device-select-group">
+                    <label for="microphone-select">Microphone</label>
+                    <select id="microphone-select"></select>
+                </div>
+            </div>
+
+            <div id="id-display" class="hidden">
+                <div class="qr-panel">
+                    <canvas id="qr-code"></canvas>
+                    <div style="margin-top: 1rem;">
+                        <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">Room ID</div>
+                        <div id="peer-id" style="font-family: monospace; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
   `;
 
-    const statusEl = querySelectorOrThrow<HTMLElement>(container, '#status');
+    const statusTextEl = querySelectorOrThrow<HTMLElement>(container, '#status-text');
+    const statusDotEl = querySelectorOrThrow<HTMLElement>(container, '#status-badge .status-dot');
+    
+    const updateStatus = (text: string, active: boolean) => {
+        statusTextEl.textContent = text;
+        if (active) statusDotEl.classList.add('active');
+        else statusDotEl.classList.remove('active');
+    };
+
     const idDisplayEl = querySelectorOrThrow<HTMLElement>(container, '#id-display');
     const roomIdEl = querySelectorOrThrow<HTMLElement>(container, '#peer-id');
     const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#local-video');
     const canvasEl = querySelectorOrThrow<HTMLCanvasElement>(container, '#qr-code');
     const cameraSelect = querySelectorOrThrow<HTMLSelectElement>(container, '#camera-select');
     const micSelect = querySelectorOrThrow<HTMLSelectElement>(container, '#microphone-select');
-    const qrSection = querySelectorOrThrow<HTMLDetailsElement>(container, '#qr-section');
+    
+    const settingsDrawer = querySelectorOrThrow<HTMLElement>(container, '#settings-drawer');
+    const settingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#settings-btn');
+    const closeSettingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#close-settings');
 
-    const setQrSectionOpen = (shouldOpen: boolean) => {
-        if (!qrSection) return;
-        qrSection.open = shouldOpen;
-    };
+    settingsBtn.addEventListener('click', () => {
+        settingsDrawer.classList.add('open');
+    });
 
-    // Populate device dropdowns, preserving current selection if possible
+    closeSettingsBtn.addEventListener('click', () => {
+        settingsDrawer.classList.remove('open');
+    });
+
     async function populateDevices() {
         const currentCamera = cameraSelect!.value;
         const currentMic = micSelect!.value;
@@ -94,7 +126,6 @@ export async function initBabyStation(
             .map(d => `<option value="${d.deviceId}">${d.label}</option>`)
             .join('');
 
-        // Restore previous selection if still available
         if (currentCamera && devices.cameras.some(d => d.deviceId === currentCamera)) {
             cameraSelect!.value = currentCamera;
         }
@@ -103,16 +134,13 @@ export async function initBabyStation(
         }
     }
 
-    // Start or restart media stream with selected devices
     async function startStream(preferBackCamera = false): Promise<MediaStream> {
         stopMediaStream(stream);
 
-        // Build video constraints
         let videoConstraints: MediaTrackConstraints | boolean = true;
         if (cameraSelect!.value) {
             videoConstraints = { deviceId: { exact: cameraSelect!.value } };
         } else if (preferBackCamera) {
-            // On mobile, prefer back-facing camera for baby monitoring
             videoConstraints = { facingMode: { ideal: 'environment' } };
         }
 
@@ -126,7 +154,6 @@ export async function initBabyStation(
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoEl!.srcObject = stream;
 
-        // Update active call if connected
         if (activeCall) {
             const videoTrack = stream.getVideoTracks()[0];
             const audioTrack = stream.getAudioTracks()[0];
@@ -143,38 +170,32 @@ export async function initBabyStation(
         return stream;
     }
 
-    // Handle device changes
     cameraSelect.addEventListener('change', () => {
         startStream().catch(err => {
             console.error('Failed to switch camera', err);
-            statusEl!.textContent = 'Error switching camera: ' + (err as Error).message;
+            updateStatus('Error switching camera: ' + (err as Error).message, false);
         });
     });
 
     micSelect.addEventListener('change', () => {
         startStream().catch(err => {
             console.error('Failed to switch microphone', err);
-            statusEl!.textContent = 'Error switching microphone: ' + (err as Error).message;
+            updateStatus('Error switching microphone: ' + (err as Error).message, false);
         });
     });
 
-    // Listen for device hot-plug
     deviceChangeHandler = () => {
         populateDevices().catch(err => console.error('Failed to refresh devices', err));
     };
     navigator.mediaDevices.addEventListener('devicechange', deviceChangeHandler);
 
     try {
-        // Initial enumeration may be limited before permission grant
         await populateDevices();
 
-        // Start stream preferring back camera (for baby monitoring)
         const currentStream = await startStream(true);
 
-        // Re-enumerate devices after permission is granted to get full list
         await populateDevices();
 
-        // Update dropdown to reflect actual selected device
         const videoTrack = currentStream.getVideoTracks()[0];
         const audioTrack = currentStream.getAudioTracks()[0];
         if (videoTrack) {
@@ -190,13 +211,14 @@ export async function initBabyStation(
             }
         }
 
-        statusEl.textContent = 'Connecting to signaling server...';
+        updateStatus('Connecting...', false);
 
         peer = new Peer(roomId);
 
         peer.on('open', (id) => {
-            statusEl.textContent = 'Ready. Waiting for parent to connect...';
+            updateStatus('Waiting for parent...', true);
             idDisplayEl.classList.remove('hidden');
+            settingsDrawer.classList.add('open');
             roomIdEl.textContent = id;
 
             const url = new URL(window.location.href);
@@ -211,7 +233,9 @@ export async function initBabyStation(
         peer.on('call', (call) => {
             console.log('Incoming call from parent...');
             console.log('Stream tracks:', stream?.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
-            statusEl.textContent = 'Parent connected! Streaming...';
+            updateStatus('Streaming Live', true);
+            settingsDrawer.classList.remove('open');
+
             if (activeCall && activeCall !== call) {
                 activeCall.close();
             }
@@ -224,27 +248,26 @@ export async function initBabyStation(
                 if (activeCall === call) {
                     activeCall = null;
                 }
-                statusEl.textContent = message ?? 'Parent disconnected. Waiting for parent to connect...';
-                setQrSectionOpen(true);
+                updateStatus(message ?? 'Parent disconnected', false);
+                settingsDrawer.classList.add('open');
             };
 
             call.on('close', () => handleCallTerminated());
             call.on('error', (err) => {
                 console.error('Call error', err);
-                handleCallTerminated('Call error. Waiting for parent to reconnect...');
+                handleCallTerminated('Call error. Waiting...');
             });
 
             call.answer(stream!);
-            setQrSectionOpen(false);
         });
 
         peer.on('error', (err) => {
             console.error(err);
-            statusEl.textContent = 'Error: ' + err.type;
+            updateStatus('Error: ' + err.type, false);
         });
     } catch (err) {
         console.error('Failed to get local stream', err);
-        statusEl.textContent = 'Error accessing camera/mic: ' + (err as Error).message;
+        updateStatus('Camera error: ' + (err as Error).message, false);
     }
 
     return { cleanup };
