@@ -124,7 +124,7 @@ export function createMotionDetector(
             }
 
             const motionScore = calculateMotionScore(currentGray, previousGray);
-            const displayLevel = Math.min(1, motionScore * 5);
+            const displayLevel = Math.min(1, motionScore * 10);
             callbacks.onMotionLevel(displayLevel);
 
             const now = Date.now();

@@ -67,6 +67,12 @@ export async function initParentStation(
     container.innerHTML = `
     <div id="video-container" class="full-screen-video-container">
         <video id="remote-video" autoplay playsinline></video>
+        <div id="tap-to-play" class="tap-to-play hidden">
+            <div class="tap-to-play-content">
+                <span class="tap-icon">▶️</span>
+                <span class="tap-text">Tap to Start Monitoring</span>
+            </div>
+        </div>
     </div>
 
     <div class="ui-layer">
@@ -150,6 +156,7 @@ export async function initParentStation(
 
     const videoContainer = querySelectorOrThrow<HTMLElement>(container, '#video-container');
     const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#remote-video');
+    const tapToPlayEl = querySelectorOrThrow<HTMLElement>(container, '#tap-to-play');
     const meterEl = querySelectorOrThrow<HTMLElement>(container, '#audio-level-meter');
     const motionMeterEl = querySelectorOrThrow<HTMLElement>(container, '#motion-level-meter');
     const motionToastEl = querySelectorOrThrow<HTMLElement>(container, '#motion-toast');
@@ -160,6 +167,17 @@ export async function initParentStation(
     const settingsDrawer = querySelectorOrThrow<HTMLElement>(container, '#settings-drawer');
     const settingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#settings-btn');
     const closeSettingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#close-settings');
+
+    // Handle tap-to-play for browsers that block autoplay
+    tapToPlayEl.addEventListener('click', () => {
+        videoEl.play()
+            .then(() => {
+                tapToPlayEl.classList.add('hidden');
+            })
+            .catch((e) => {
+                console.error('Manual play failed:', e);
+            });
+    });
 
     settingsBtn.addEventListener('click', () => {
         settingsDrawer.classList.add('open');
@@ -179,7 +197,7 @@ export async function initParentStation(
         motionAlertTimeout = setTimeout(() => {
             motionToastEl.classList.remove('visible');
             videoContainer.classList.remove('video-alert');
-        }, 2000);
+        }, 4000);
     }
 
     function setupMotionDetection() {
@@ -195,7 +213,7 @@ export async function initParentStation(
         });
 
         const sliderValue = parseInt(sensitivitySlider.value, 10);
-        const threshold = (101 - sliderValue) / 1000;
+        const threshold = (101 - sliderValue) / 2000;
         motionDetectorHandle.setThreshold(threshold);
         motionDetectorHandle.start();
     }
@@ -204,7 +222,7 @@ export async function initParentStation(
         const value = parseInt(sensitivitySlider.value, 10);
         sensitivityValue.textContent = String(value);
         if (motionDetectorHandle) {
-            const threshold = (101 - value) / 1000;
+            const threshold = (101 - value) / 2000;
             motionDetectorHandle.setThreshold(threshold);
         }
     });
@@ -292,7 +310,14 @@ export async function initParentStation(
             console.log('Received stream tracks:', incomingStream.getTracks().map(t => `${t.kind}: ${t.label} (enabled: ${t.enabled})`));
             statusEl.textContent = 'Connected! Monitoring...';
             videoEl!.srcObject = incomingStream;
-            videoEl!.play().catch((e) => console.error('Auto-play failed', e));
+            videoEl!.play()
+                .then(() => {
+                    tapToPlayEl.classList.add('hidden');
+                })
+                .catch((e) => {
+                    console.error('Auto-play blocked:', e);
+                    tapToPlayEl.classList.remove('hidden');
+                });
 
             if (meterEl && incomingStream.getAudioTracks().length > 0) {
                 if (audioMeterHandle) {

@@ -13,8 +13,8 @@ if (!appEl) {
 appEl.innerHTML = `
   <div class="app-shell">
     <div id="landing-view" class="landing-container">
-      <h1 class="landing-title">Peer-a-Boo 👻</h1>
-      
+      <h1 class="landing-title"><span class="shiny">Peer-a-Boo</span>👻</h1>
+
       <div class="room-input-group">
         <input type="text" id="peer-id-input" class="room-input" placeholder="Enter Room ID" spellcheck="false" />
       </div>
