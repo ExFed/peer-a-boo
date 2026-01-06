@@ -198,7 +198,6 @@ export async function initParentStation(
                 audioDecayHandle.stop();
             }
             audioDecayHandle = createDecayingMeter(meterEl, {
-                decayRate: 10,
                 warningThreshold: 0.5,
                 dangerThreshold: 0.75,
             });
@@ -252,7 +251,7 @@ export async function initParentStation(
         }
 
         motionDecayHandle = createDecayingMeter(motionMeterEl, {
-            decayRate: 10,
+            // decayResistance: 50,
         });
 
         motionDetectorHandle = createMotionDetector(videoEl, {

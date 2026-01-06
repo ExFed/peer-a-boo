@@ -140,8 +140,13 @@ export interface DecayingMeterHandle {
  * Configuration options for a decaying meter.
  */
 export interface DecayingMeterOptions {
-    /** Rate at which the meter decays in milliseconds */
-    decayRate?: number;
+    /** The resistance to decay in milliseconds per full meter; in other words,
+     * how long it would take for the meter to fully decay from full to empty */
+    decayResistance?: number;
+    /** Time in milliseconds to sustain the peak level before decaying */
+    sustainPeriod?: number;
+    /** Level below which the meter is considered 'empty' (0-1) */
+    minimumThreshold?: number;
     /** Level above which the 'warning' class is added (0-1) */
     warningThreshold?: number;
     /** Level above which the 'danger' class is added (0-1) */
@@ -159,16 +164,22 @@ export function createDecayingMeter(
     options: DecayingMeterOptions = {}
 ): DecayingMeterHandle {
     const {
-        decayRate = 100,
+        decayResistance = 500,
+        sustainPeriod = 250,
+        minimumThreshold = 0.05,
         warningThreshold = 0.5,
         dangerThreshold = 0.75,
     } = options;
 
+    const decayRate = 1 / decayResistance;
+
+    let lastPeakTime = performance.now();
     let currentLevel = 0;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const applyLevel = () => {
-        meterEl.style.width = `${currentLevel * 100}%`;
+        let meterLevel = Math.max(0, (currentLevel - minimumThreshold) / (1 - minimumThreshold));
+        meterEl.style.width = `${meterLevel * 100}%`;
 
         meterEl.classList.remove('warning', 'danger');
         if (currentLevel > dangerThreshold) {
@@ -178,17 +189,25 @@ export function createDecayingMeter(
         }
     };
 
+    const dt = 16.667; // Approximate frame time for 60fps
+
     intervalId = setInterval(() => {
+        const now = performance.now();
+        if (lastPeakTime + sustainPeriod > now) {
+            return;
+        }
+
         if (currentLevel > 0) {
-            currentLevel = Math.max(0, currentLevel - 0.1);
+            currentLevel = Math.max(0, currentLevel - dt * decayRate);
             applyLevel();
         }
-    }, decayRate);
+    }, dt);
 
     return {
         update: (level: number) => {
             if (level > currentLevel) {
                 currentLevel = level;
+                lastPeakTime = performance.now();
                 applyLevel();
             }
         },
