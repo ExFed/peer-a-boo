@@ -33,7 +33,8 @@ export async function initParentStation(
     let motionDecayHandle: DecayingMeterHandle | null = null;
     let motionDetectorHandle: MotionDetectorHandle | null = null;
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
-    let motionAlertTimeout: ReturnType<typeof setTimeout> | null = null;
+    let squirmingAlertTimeout: ReturnType<typeof setTimeout> | null = null;
+    let cryingAlertTimeout: ReturnType<typeof setTimeout> | null = null;
     let isConnected = false;
     let isCleaningUp = false;
 
@@ -43,9 +44,13 @@ export async function initParentStation(
             clearTimeout(retryTimeout);
             retryTimeout = null;
         }
-        if (motionAlertTimeout) {
-            clearTimeout(motionAlertTimeout);
-            motionAlertTimeout = null;
+        if (squirmingAlertTimeout) {
+            clearTimeout(squirmingAlertTimeout);
+            squirmingAlertTimeout = null;
+        }
+        if (cryingAlertTimeout) {
+            clearTimeout(cryingAlertTimeout);
+            cryingAlertTimeout = null;
         }
         if (motionDetectorHandle) {
             motionDetectorHandle.stop();
@@ -105,8 +110,11 @@ export async function initParentStation(
             </button>
         </div>
 
-        <div id="motion-toast" class="toast">
-            Motion Detected!
+        <div id="squirming-toast" class="toast">
+            Squirming Detected!
+        </div>
+        <div id="crying-toast" class="toast toast-crying">
+            Crying Detected!
         </div>
 
         <div class="control-bar">
@@ -122,7 +130,7 @@ export async function initParentStation(
                 <span style="font-size: 1.2rem;">🏃</span>
                 <div class="meter-group">
                     <div class="meter-track">
-                        <div id="motion-level-meter" class="meter-fill motion"></div>
+                        <div id="squirming-level-meter" class="meter-fill motion"></div>
                     </div>
                 </div>
             </div>
@@ -134,21 +142,38 @@ export async function initParentStation(
                 <h3 class="drawer-title">Monitor Settings</h3>
             </div>
 
-             <div style="margin-bottom: 2rem;">
+            <div class="settings-section">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <label for="motion-sensitivity" style="font-weight: 500;">Motion Sensitivity</label>
-                    <span id="sensitivity-value" style="color: var(--color-primary);">50</span>
+                    <label for="squirming-sensitivity" style="font-weight: 500;">Squirming Sensitivity</label>
+                    <span id="squirming-sensitivity-value" style="color: var(--color-primary);">50</span>
                 </div>
-                <input type="range" id="motion-sensitivity" min="1" max="100" value="50" />
-                 <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
+                <input type="range" id="squirming-sensitivity" min="1" max="100" value="50" />
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
+                    <span>Low</span>
+                    <span>High</span>
+                </div>
+            </div>
+
+            <label class="pause-toggle" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; margin-bottom: 1.5rem;">
+                <input type="checkbox" id="pause-squirming" style="width: 20px; height: 20px;" />
+                <span style="font-size: 1rem; font-weight: 500;">Pause Squirming Alerts</span>
+            </label>
+
+            <div class="settings-section">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <label for="crying-sensitivity" style="font-weight: 500;">Crying Sensitivity</label>
+                    <span id="crying-sensitivity-value" style="color: var(--color-primary);">50</span>
+                </div>
+                <input type="range" id="crying-sensitivity" min="1" max="100" value="50" />
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
                     <span>Low</span>
                     <span>High</span>
                 </div>
             </div>
 
             <label class="pause-toggle" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer;">
-                <input type="checkbox" id="pause-motion" style="width: 20px; height: 20px;" />
-                <span style="font-size: 1rem; font-weight: 500;">Pause Motion Alerts</span>
+                <input type="checkbox" id="pause-crying" style="width: 20px; height: 20px;" />
+                <span style="font-size: 1rem; font-weight: 500;">Pause Crying Alerts</span>
             </label>
 
             <div style="margin-top: 2rem; font-size: 0.8rem; color: #666; text-align: center;">
@@ -177,11 +202,15 @@ export async function initParentStation(
     const videoEl = querySelectorOrThrow<HTMLVideoElement>(container, '#remote-video');
     const tapToPlayEl = querySelectorOrThrow<HTMLElement>(container, '#tap-to-play');
     const meterEl = querySelectorOrThrow<HTMLElement>(container, '#audio-level-meter');
-    const motionMeterEl = querySelectorOrThrow<HTMLElement>(container, '#motion-level-meter');
-    const motionToastEl = querySelectorOrThrow<HTMLElement>(container, '#motion-toast');
-    const sensitivitySlider = querySelectorOrThrow<HTMLInputElement>(container, '#motion-sensitivity');
-    const sensitivityValue = querySelectorOrThrow<HTMLElement>(container, '#sensitivity-value');
-    const pauseCheckbox = querySelectorOrThrow<HTMLInputElement>(container, '#pause-motion');
+    const squirmingMeterEl = querySelectorOrThrow<HTMLElement>(container, '#squirming-level-meter');
+    const squirmingToastEl = querySelectorOrThrow<HTMLElement>(container, '#squirming-toast');
+    const cryingToastEl = querySelectorOrThrow<HTMLElement>(container, '#crying-toast');
+    const squirmingSensitivitySlider = querySelectorOrThrow<HTMLInputElement>(container, '#squirming-sensitivity');
+    const squirmingSensitivityValue = querySelectorOrThrow<HTMLElement>(container, '#squirming-sensitivity-value');
+    const pauseSquirmingCheckbox = querySelectorOrThrow<HTMLInputElement>(container, '#pause-squirming');
+    const cryingSensitivitySlider = querySelectorOrThrow<HTMLInputElement>(container, '#crying-sensitivity');
+    const cryingSensitivityValue = querySelectorOrThrow<HTMLElement>(container, '#crying-sensitivity-value');
+    const pauseCryingCheckbox = querySelectorOrThrow<HTMLInputElement>(container, '#pause-crying');
 
     const settingsDrawer = querySelectorOrThrow<HTMLElement>(container, '#settings-drawer');
     const settingsBtn = querySelectorOrThrow<HTMLButtonElement>(container, '#settings-btn');
@@ -201,8 +230,17 @@ export async function initParentStation(
                 warningThreshold: 0.5,
                 dangerThreshold: 0.75,
             });
-            audioMeterHandle = createAudioLevelMeter(remoteStream, (level) => {
-                audioDecayHandle?.update(level);
+            
+            const cryingSensitivity = parseInt(cryingSensitivitySlider.value, 10);
+            const cryingThreshold = (101 - cryingSensitivity) / 100;
+            
+            audioMeterHandle = createAudioLevelMeter(remoteStream, {
+                onLevel: (level) => {
+                    audioDecayHandle?.update(level);
+                },
+                onAlert: showCryingAlert,
+                alertThreshold: cryingThreshold,
+                alertCooldownMs: 4000,
             });
         } else if (meterEl) {
             console.warn('No audio tracks in received stream');
@@ -229,15 +267,28 @@ export async function initParentStation(
         settingsDrawer.classList.remove('open');
     });
 
-    function showMotionAlert() {
-        motionToastEl.classList.add('visible');
+    function showSquirmingAlert() {
+        squirmingToastEl.classList.add('visible');
         videoContainer.classList.add('video-alert');
 
-        if (motionAlertTimeout) {
-            clearTimeout(motionAlertTimeout);
+        if (squirmingAlertTimeout) {
+            clearTimeout(squirmingAlertTimeout);
         }
-        motionAlertTimeout = setTimeout(() => {
-            motionToastEl.classList.remove('visible');
+        squirmingAlertTimeout = setTimeout(() => {
+            squirmingToastEl.classList.remove('visible');
+            videoContainer.classList.remove('video-alert');
+        }, 4000);
+    }
+
+    function showCryingAlert() {
+        cryingToastEl.classList.add('visible');
+        videoContainer.classList.add('video-alert');
+
+        if (cryingAlertTimeout) {
+            clearTimeout(cryingAlertTimeout);
+        }
+        cryingAlertTimeout = setTimeout(() => {
+            cryingToastEl.classList.remove('visible');
             videoContainer.classList.remove('video-alert');
         }, 4000);
     }
@@ -250,35 +301,48 @@ export async function initParentStation(
             motionDecayHandle.stop();
         }
 
-        motionDecayHandle = createDecayingMeter(motionMeterEl, {
-            // decayResistance: 50,
-        });
+        motionDecayHandle = createDecayingMeter(squirmingMeterEl, {});
 
         motionDetectorHandle = createMotionDetector(videoEl, {
             onMotionLevel: (level) => {
                 motionDecayHandle?.update(level);
             },
-            onMotionAlert: showMotionAlert,
+            onMotionAlert: showSquirmingAlert,
         });
 
-        const sliderValue = parseInt(sensitivitySlider.value, 10);
+        const sliderValue = parseInt(squirmingSensitivitySlider.value, 10);
         const threshold = (101 - sliderValue) / 2000;
         motionDetectorHandle.setThreshold(threshold);
         motionDetectorHandle.start();
     }
 
-    sensitivitySlider.addEventListener('input', () => {
-        const value = parseInt(sensitivitySlider.value, 10);
-        sensitivityValue.textContent = String(value);
+    squirmingSensitivitySlider.addEventListener('input', () => {
+        const value = parseInt(squirmingSensitivitySlider.value, 10);
+        squirmingSensitivityValue.textContent = String(value);
         if (motionDetectorHandle) {
             const threshold = (101 - value) / 2000;
             motionDetectorHandle.setThreshold(threshold);
         }
     });
 
-    pauseCheckbox.addEventListener('change', () => {
+    pauseSquirmingCheckbox.addEventListener('change', () => {
         if (motionDetectorHandle) {
-            motionDetectorHandle.setPaused(pauseCheckbox.checked);
+            motionDetectorHandle.setPaused(pauseSquirmingCheckbox.checked);
+        }
+    });
+
+    cryingSensitivitySlider.addEventListener('input', () => {
+        const value = parseInt(cryingSensitivitySlider.value, 10);
+        cryingSensitivityValue.textContent = String(value);
+        if (audioMeterHandle) {
+            const threshold = (101 - value) / 100;
+            audioMeterHandle.setThreshold(threshold);
+        }
+    });
+
+    pauseCryingCheckbox.addEventListener('change', () => {
+        if (audioMeterHandle) {
+            audioMeterHandle.setPaused(pauseCryingCheckbox.checked);
         }
     });
 

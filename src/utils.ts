@@ -126,6 +126,22 @@ export async function enumerateMediaDevices(): Promise<MediaDevices> {
  */
 export interface AudioLevelMeterHandle {
     stop: () => void;
+    setThreshold: (threshold: number) => void;
+    setPaused: (paused: boolean) => void;
+}
+
+/**
+ * Configuration options for the audio level meter.
+ */
+export interface AudioLevelMeterOptions {
+    /** Callback for each audio level update (0-1) */
+    onLevel?: (level: number) => void;
+    /** Callback when audio exceeds the alert threshold */
+    onAlert?: () => void;
+    /** Audio level threshold for triggering alerts (0-1, default 0.5) */
+    alertThreshold?: number;
+    /** Cooldown period between alerts in milliseconds (default 2000) */
+    alertCooldownMs?: number;
 }
 
 /**
@@ -223,13 +239,27 @@ export function createDecayingMeter(
 /**
  * Creates an audio level meter from a media stream.
  * @param stream - The media stream to analyze
- * @param onLevel - Callback function that receives the current audio level (0-1)
- * @returns Handle for stopping the meter
+ * @param options - Configuration options including callbacks and thresholds
+ * @returns Handle for stopping the meter and adjusting threshold/pause state
  */
 export function createAudioLevelMeter(
     stream: MediaStream,
-    onLevel: (level: number) => void
+    options: AudioLevelMeterOptions | ((level: number) => void) = {}
 ): AudioLevelMeterHandle {
+    const opts: AudioLevelMeterOptions = typeof options === 'function' 
+        ? { onLevel: options } 
+        : options;
+    
+    const {
+        onLevel,
+        onAlert,
+        alertCooldownMs = 2000,
+    } = opts;
+    
+    let alertThreshold = opts.alertThreshold ?? 0.5;
+    let isPaused = false;
+    let lastAlertTime = 0;
+
     const audioContext = new AudioContext();
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
@@ -250,7 +280,16 @@ export function createAudioLevelMeter(
         const rms = Math.sqrt(sum / dataArray.length);
         const level = Math.min(1, rms * 3);
 
-        onLevel(level);
+        onLevel?.(level);
+        
+        if (onAlert && !isPaused && level >= alertThreshold) {
+            const now = Date.now();
+            if (now - lastAlertTime >= alertCooldownMs) {
+                lastAlertTime = now;
+                onAlert();
+            }
+        }
+
         animationId = requestAnimationFrame(update);
     };
 
@@ -267,6 +306,12 @@ export function createAudioLevelMeter(
             }
             source.disconnect();
             audioContext.close();
+        },
+        setThreshold: (threshold: number) => {
+            alertThreshold = threshold;
+        },
+        setPaused: (paused: boolean) => {
+            isPaused = paused;
         }
     };
 }
