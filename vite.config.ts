@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from 'vite';
+import { execSync } from 'node:child_process';
+
+const appVersion = execSync('git describe --tags --always --dirty').toString().trim();
 
 function loadHttpsOptions() {
     const isEnabled = process.env.DEV_HTTPS && process.env.DEV_HTTPS !== '0';
@@ -34,6 +37,9 @@ export default defineConfig(({ command }) => {
     const https = shouldServe ? loadHttpsOptions() : undefined;
 
     return {
+        define: {
+            __APP_VERSION__: JSON.stringify(appVersion),
+        },
         // Use relative base path so the app works on https://<user>.github.io/<repo>/
         base: './',
         server: https ? { https } : undefined,

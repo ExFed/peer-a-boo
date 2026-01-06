@@ -32,6 +32,10 @@ appEl.innerHTML = `
           <span class="role-title">Parent Station</span>
         </button>
       </div>
+
+      <footer class="app-version">
+        ${__APP_VERSION__}
+      </footer>
     </div>
     <div id="station-container"></div>
   </div>
