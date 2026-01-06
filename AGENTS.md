@@ -57,7 +57,7 @@ peer-a-boo/
 ## UNIQUE STYLES
 
 - Room IDs: `WordWordWord1234` format (dictionary.ts)
-- HTTPS dev mode: `npm run dev:https` generates self-signed certs
+- HTTPS dev mode: `bun run dev:https` generates self-signed certs
 - No separate vitest.config - test config embedded in `vite.config.ts`
 - **UI Pattern**: Full-screen video with slide-up settings drawers (`.settings-drawer`)
 - **CSS Architecture**: CSS custom properties in `:root`, dark theme default
@@ -66,19 +66,20 @@ peer-a-boo/
 ## COMMANDS
 
 ```bash
-npm run dev          # HTTP dev server
-npm run dev:https    # HTTPS dev server (for LAN/mobile testing)
-npm run build        # tsc + vite build
-npm run test -- --run  # vitest (no watch mode - prevents bash timeout)
-npm run preview      # Preview production build
+bun run dev          # HTTP dev server
+bun run dev:https    # HTTPS dev server (for LAN/mobile testing)
+bun run build        # tsc + vite build
+bun run test -- --run  # vitest (no watch mode - prevents bash timeout)
+bun run preview      # Preview production build
 ```
 
 ## NOTES
 
-- **Mobile testing requires HTTPS**: Use `npm run dev:https -- --host 0.0.0.0`
+- **Package manager**: Uses Bun for faster installs and script execution
+- **Mobile testing requires HTTPS**: Use `bun run dev:https -- --host 0.0.0.0`
 - **PeerJS retry timing**: Parent station waits 5s+ between retries (PeerJS connection timeout)
 - **Back camera default**: Baby station prefers `facingMode: environment` on mobile
 - **Audio meter scaling**: RMS value scaled 3x for visibility (`level * 3`)
 - **Motion detection**: Frame differencing on 160x120 downsampled video, 2-second alert cooldown
-- **Test timeout fix**: Always use `npm test -- --run` to disable watch mode (prevents agent bash timeout)
+- **Test timeout fix**: Always use `bun test -- --run` to disable watch mode (prevents agent bash timeout)
 - **Test separation**: Vitest runs `src/*.test.ts` only; Playwright tests in `tests/` are excluded via `vite.config.ts`

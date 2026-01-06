@@ -18,13 +18,13 @@ A web-based P2P baby monitor using WebRTC.
 1. Install dependencies:
 
     ```bash
-    npm install
+    bun install
     ```
 
 2. Start the development server:
 
     ```bash
-    npm run dev
+    bun run dev
     ```
 
 3. Open `http://localhost:5173` in your browser.
@@ -38,7 +38,7 @@ to test WebRTC from phones or tablets on the same LAN.
 1. Run the secure dev server:
 
    ```bash
-   npm run dev:https
+   bun run dev:https
    ```
 
 2. On the first run the script creates `certs/dev.cert.pem` and
@@ -55,7 +55,7 @@ When another device on your network needs to load the dev server, expose Vite
 on all interfaces:
 
 ```bash
-npm run dev:https -- --host 0.0.0.0
+bun run dev:https -- --host 0.0.0.0
 ```
 
 Replace `dev:https` with `dev` if you only need HTTP. Visit
@@ -98,5 +98,5 @@ laptop, you need a public HTTPS URL.
 
 ### Deploy to Netlify/Vercel
 
-1. Run `npm run build`.
+1. Run `bun run build`.
 2. Upload the `dist` folder to your hosting provider.
