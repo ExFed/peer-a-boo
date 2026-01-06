@@ -457,6 +457,11 @@ video {
         gap: var(--spacing-lg);
     }
 
+    .settings-group > * {
+        flex: 1 1 0px;
+        min-width: 0;
+    }
+
     .pause-toggle {
         margin-bottom: 2rem;
         background: transparent;
