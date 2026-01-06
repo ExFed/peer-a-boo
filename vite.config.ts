@@ -3,7 +3,7 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import { execSync } from 'node:child_process';
 
-const appVersion = execSync('git describe --tags --always --dirty').toString().trim();
+const appVersion = execSync('git describe --tags --always --dirty --match "v*.*.*"').toString().trim();
 
 function loadHttpsOptions() {
     const isEnabled = process.env.DEV_HTTPS && process.env.DEV_HTTPS !== '0';
